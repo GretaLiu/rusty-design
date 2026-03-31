@@ -24,8 +24,7 @@ export default function MessageDetail() {
   const [uploading, setUploading] = useState(false)
   const [archiveConfirm, setArchiveConfirm] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
-  const [deletePassword, setDeletePassword] = useState('')
-  const [deleteError, setDeleteError] = useState('')
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [deleting, setDeleting] = useState(false)
   const textareaRef = useRef(null)
 
@@ -166,37 +165,39 @@ export default function MessageDetail() {
     fetchAll()
   }
 
-  const deleteTodo = async (e, todo) => {
-    e.stopPropagation()
-    if (!window.confirm('Delete this todo?')) return
-    await supabase.from('todos').delete().eq('id', todo.id)
-    fetchAll()
-  }
 
   // ── File ───────────────────────────────────────────────────────────────────
 
   const handleUpload = async (e) => {
-    const file = e.target.files[0]
-    if (!file) return
+    const selectedFiles = Array.from(e.target.files)
+    if (selectedFiles.length === 0) return
     const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
-    if (!allowed.includes(file.type)) { alert('Only PDF, images, Word, and Excel files are allowed.'); return }
+    const valid = selectedFiles.filter(f => allowed.includes(f.type))
+    const invalid = selectedFiles.filter(f => !allowed.includes(f.type))
+    if (invalid.length > 0) alert(`Skipped ${invalid.length} unsupported file(s).`)
+    if (valid.length === 0) return
     setUploading(true)
-    const ext = file.name.split('.').pop()
-    const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-    await supabase.storage.from('files').upload(path, file)
-    const { data: { publicUrl } } = supabase.storage.from('files').getPublicUrl(path)
-    const { data: fileRow } = await supabase.from('files')
-      .insert({ message_id: id, filename: file.name, file_url: publicUrl, file_type: ext.toUpperCase(), created_by: user.id })
-      .select().single()
-    if (fileRow) {
-      await supabase.from('activity_log').insert({
-        entity_type: 'file', entity_id: fileRow.id,
-        action: 'uploaded', performed_by: user.id
-      })
+    for (const file of valid) {
+      const ext = file.name.split('.').pop()
+      const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      const { error: uploadError } = await supabase.storage.from('files').upload(path, file)
+      if (uploadError) continue
+      const { data: { publicUrl } } = supabase.storage.from('files').getPublicUrl(path)
+      const { data: fileRow } = await supabase.from('files')
+        .insert({ message_id: id, filename: file.name, file_url: publicUrl, file_type: ext.toUpperCase(), created_by: user.id })
+        .select().single()
+      if (fileRow) {
+        await supabase.from('activity_log').insert({
+          entity_type: 'file', entity_id: fileRow.id,
+          action: 'uploaded', performed_by: user.id
+        })
+      }
     }
-    setUploading(false); fetchAll(); e.target.value = ''
+    setUploading(false)
+    fetchAll()
+    e.target.value = ''
   }
 
   const updateFileStatus = async (file, status) => {
@@ -214,15 +215,6 @@ export default function MessageDetail() {
       entity_type: 'file', entity_id: file.id,
       action: file.pinned ? 'unpinned' : 'pinned', performed_by: user.id
     })
-    fetchAll()
-  }
-
-  const deleteFile = async (e, file) => {
-    e.stopPropagation()
-    if (!window.confirm('Delete this file?')) return
-    const path = file.file_url.split('/files/')[1]
-    await supabase.storage.from('files').remove([path])
-    await supabase.from('files').delete().eq('id', file.id)
     fetchAll()
   }
 
@@ -253,15 +245,6 @@ export default function MessageDetail() {
 
   const handleDelete = async () => {
     setDeleting(true)
-    setDeleteError('')
-    const { data } = await supabase.rpc('verify_user', {
-      p_username: user.username, p_password: deletePassword
-    })
-    if (!data || data.length === 0) {
-      setDeleteError('Incorrect password')
-      setDeleting(false)
-      return
-    }
     await supabase.from('messages').delete().eq('id', id)
     navigate('/home')
   }
@@ -325,38 +308,12 @@ export default function MessageDetail() {
             )
           )}
 
-          {/* Delete */}
-          {!showDelete ? (
-            <button onClick={() => setShowDelete(true)} style={{
-              fontSize: '12px', padding: '3px 10px', backgroundColor: '#fff', color: '#ef4444',
-              border: '1px solid #fee2e2', borderRadius: '5px', cursor: 'pointer'
-            }}>Delete</button>
-          ) : (
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              <input type="password" placeholder="Your password" value={deletePassword}
-                onChange={e => { setDeletePassword(e.target.value); setDeleteError('') }}
-                style={{
-                  padding: '3px 8px', border: `1px solid ${deleteError ? '#ef4444' : '#d1d5db'}`,
-                  borderRadius: '5px', fontSize: '12px', width: '130px'
-                }} />
-              <button onClick={handleDelete} disabled={deleting || !deletePassword} style={{
-                fontSize: '12px', padding: '3px 10px', backgroundColor: '#ef4444', color: '#fff',
-                border: 'none', borderRadius: '5px', cursor: 'pointer',
-                opacity: deleting || !deletePassword ? 0.6 : 1
-              }}>{deleting ? '...' : 'Confirm'}</button>
-              <button onClick={() => { setShowDelete(false); setDeletePassword(''); setDeleteError('') }} style={{
-                fontSize: '12px', padding: '3px 10px', backgroundColor: '#fff', color: '#374151',
-                border: '1px solid #d1d5db', borderRadius: '5px', cursor: 'pointer'
-              }}>Cancel</button>
-              {deleteError && <span style={{ fontSize: '12px', color: '#ef4444' }}>{deleteError}</span>}
-            </div>
-          )}
         </div>
       </div>
 
       {/* Title */}
-      <div style={{ marginBottom: '28px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+      <div style={{ marginBottom: '28px', textAlign: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '4px' }}>
           {message.archived && (
             <span style={{ fontSize: '11px', color: '#9ca3af', border: '1px solid #e5e7eb', borderRadius: '4px', padding: '1px 6px' }}>
               Archived
@@ -388,7 +345,8 @@ export default function MessageDetail() {
                 </div>
                 <div style={{
                   fontSize: '13px', color: '#374151', lineHeight: '1.6',
-                  backgroundColor: '#f9fafb', padding: '10px 12px', borderRadius: '6px'
+                  backgroundColor: '#f9fafb', padding: '10px 12px', borderRadius: '6px',
+                  textAlign: 'left'
                 }}>
                   {reply.body.split(/(@[\w\s]+?)(?=\s|$|@)/).map((part, i) => {
                     const mentioned = reply.reply_mentions?.some(m =>
@@ -513,10 +471,6 @@ export default function MessageDetail() {
                 style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }} />
               <span style={{ fontSize: '11px', color: '#9ca3af' }}>{todo.assigned_user?.display_name}</span>
             </div>
-            <button onClick={e => deleteTodo(e, todo)} style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: '#d1d5db', fontSize: '14px', padding: '0 2px', flexShrink: 0
-            }}>✕</button>
           </div>
         ))}
       </section>
@@ -532,7 +486,7 @@ export default function MessageDetail() {
               opacity: uploading ? 0.6 : 1
             }}>
               {uploading ? 'Uploading...' : '+ Upload'}
-              <input type="file" style={{ display: 'none' }} onChange={handleUpload} disabled={uploading}
+              <input type="file" multiple style={{ display: 'none' }} onChange={handleUpload} disabled={uploading}
                 accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx" />
             </label>
           )}
@@ -578,15 +532,58 @@ export default function MessageDetail() {
                   fontSize: '11px', padding: '2px 8px', border: '1px solid #fee2e2',
                   borderRadius: '4px', cursor: 'pointer', backgroundColor: '#fff', color: '#ef4444'
                 }}>Void</button>
-                <button onClick={e => deleteFile(e, f)} style={{
-                  fontSize: '11px', padding: '2px 8px', border: '1px solid #fee2e2',
-                  borderRadius: '4px', cursor: 'pointer', backgroundColor: '#fff', color: '#ef4444'
-                }}>Delete</button>
               </div>
             )}
           </div>
         ))}
       </section>
+
+      {/* Danger zone */}
+      <div style={{
+        marginTop: '48px', borderTop: '1px solid #fee2e2', paddingTop: '24px'
+      }}>
+        <h3 style={{ fontSize: '13px', fontWeight: '600', color: '#ef4444', margin: '0 0 6px' }}>Danger Zone</h3>
+        <p style={{ fontSize: '12px', color: '#9ca3af', margin: '0 0 16px' }}>
+          Permanently delete this message and all its replies, todos, and files. This cannot be undone.
+        </p>
+        {!showDelete ? (
+          <button onClick={() => setShowDelete(true)} style={{
+            fontSize: '12px', padding: '6px 14px', backgroundColor: '#fff', color: '#ef4444',
+            border: '1px solid #fca5a5', borderRadius: '6px', cursor: 'pointer'
+          }}>Delete this message</button>
+        ) : (
+          <div style={{
+            border: '1px solid #fca5a5', borderRadius: '8px', padding: '16px', backgroundColor: '#fff5f5'
+          }}>
+            <p style={{ fontSize: '12px', color: '#374151', margin: '0 0 10px' }}>
+              Type <strong style={{ fontFamily: 'monospace' }}>{message.title}</strong> to confirm deletion:
+            </p>
+            <input
+              value={deleteConfirmText}
+              onChange={e => setDeleteConfirmText(e.target.value)}
+              placeholder={message.title}
+              style={{
+                padding: '6px 10px', border: '1px solid #fca5a5', borderRadius: '6px',
+                fontSize: '13px', width: '100%', boxSizing: 'border-box', marginBottom: '10px',
+                backgroundColor: '#fff'
+              }} />
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={handleDelete}
+                disabled={deleting || deleteConfirmText !== message.title}
+                style={{
+                  fontSize: '12px', padding: '6px 14px', backgroundColor: '#ef4444', color: '#fff',
+                  border: 'none', borderRadius: '6px', cursor: 'pointer',
+                  opacity: deleting || deleteConfirmText !== message.title ? 0.4 : 1
+                }}>{deleting ? 'Deleting...' : 'I understand, delete permanently'}</button>
+              <button onClick={() => { setShowDelete(false); setDeleteConfirmText('') }} style={{
+                fontSize: '12px', padding: '6px 14px', backgroundColor: '#fff', color: '#374151',
+                border: '1px solid #d1d5db', borderRadius: '6px', cursor: 'pointer'
+              }}>Cancel</button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

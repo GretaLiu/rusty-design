@@ -14,8 +14,7 @@ export default function TodoDetail() {
   const [editText, setEditText] = useState('')
   const [users, setUsers] = useState([])
   const [showDelete, setShowDelete] = useState(false)
-  const [deletePassword, setDeletePassword] = useState('')
-  const [deleteError, setDeleteError] = useState('')
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [deleting, setDeleting] = useState(false)
 
   useEffect(() => { fetchAll() }, [id])
@@ -78,15 +77,6 @@ export default function TodoDetail() {
 
   const handleDelete = async () => {
     setDeleting(true)
-    setDeleteError('')
-    const { data } = await supabase.rpc('verify_user', {
-      p_username: user.username, p_password: deletePassword
-    })
-    if (!data || data.length === 0) {
-      setDeleteError('Incorrect password')
-      setDeleting(false)
-      return
-    }
     await supabase.from('todos').delete().eq('id', id)
     navigate(todo.message_id ? `/home/messages/${todo.message_id}` : '/home/todos')
   }
@@ -102,36 +92,10 @@ export default function TodoDetail() {
     <div style={{ maxWidth: '640px', margin: '0 auto', padding: '24px' }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+      <div style={{ marginBottom: '24px' }}>
         <button onClick={() => navigate(-1)} style={{
           background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color: '#6b7280', padding: 0
         }}>← Back</button>
-        {!showDelete
-          ? <button onClick={() => setShowDelete(true)} style={{
-              fontSize: '12px', padding: '3px 10px', backgroundColor: '#fff', color: '#ef4444',
-              border: '1px solid #fee2e2', borderRadius: '5px', cursor: 'pointer'
-            }}>Delete</button>
-          : (
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              <input type="password" placeholder="Your password" value={deletePassword}
-                onChange={e => { setDeletePassword(e.target.value); setDeleteError('') }}
-                style={{
-                  padding: '3px 8px', border: `1px solid ${deleteError ? '#ef4444' : '#d1d5db'}`,
-                  borderRadius: '5px', fontSize: '12px', width: '130px'
-                }} />
-              <button onClick={handleDelete} disabled={deleting || !deletePassword} style={{
-                fontSize: '12px', padding: '3px 10px', backgroundColor: '#ef4444', color: '#fff',
-                border: 'none', borderRadius: '5px', cursor: 'pointer',
-                opacity: deleting || !deletePassword ? 0.6 : 1
-              }}>{deleting ? '...' : 'Confirm'}</button>
-              <button onClick={() => { setShowDelete(false); setDeletePassword(''); setDeleteError('') }} style={{
-                fontSize: '12px', padding: '3px 10px', backgroundColor: '#fff', color: '#374151',
-                border: '1px solid #d1d5db', borderRadius: '5px', cursor: 'pointer'
-              }}>Cancel</button>
-              {deleteError && <span style={{ fontSize: '12px', color: '#ef4444' }}>{deleteError}</span>}
-            </div>
-          )
-        }
       </div>
 
       {/* Todo */}
@@ -265,6 +229,53 @@ export default function TodoDetail() {
             </span>
           </div>
         ))}
+      </div>
+
+      {/* Danger zone */}
+      <div style={{
+        marginTop: '48px', borderTop: '1px solid #fee2e2', paddingTop: '24px'
+      }}>
+        <h3 style={{ fontSize: '13px', fontWeight: '600', color: '#ef4444', margin: '0 0 6px' }}>Danger Zone</h3>
+        <p style={{ fontSize: '12px', color: '#9ca3af', margin: '0 0 16px' }}>
+          Permanently delete this todo. This cannot be undone.
+        </p>
+        {!showDelete ? (
+          <button onClick={() => setShowDelete(true)} style={{
+            fontSize: '12px', padding: '6px 14px', backgroundColor: '#fff', color: '#ef4444',
+            border: '1px solid #fca5a5', borderRadius: '6px', cursor: 'pointer'
+          }}>Delete this todo</button>
+        ) : (
+          <div style={{
+            border: '1px solid #fca5a5', borderRadius: '8px', padding: '16px', backgroundColor: '#fff5f5'
+          }}>
+            <p style={{ fontSize: '12px', color: '#374151', margin: '0 0 10px' }}>
+              Type <strong style={{ fontFamily: 'monospace' }}>{todo.text}</strong> to confirm deletion:
+            </p>
+            <input
+              value={deleteConfirmText}
+              onChange={e => setDeleteConfirmText(e.target.value)}
+              placeholder={todo.text}
+              style={{
+                padding: '6px 10px', border: '1px solid #fca5a5', borderRadius: '6px',
+                fontSize: '13px', width: '100%', boxSizing: 'border-box', marginBottom: '10px',
+                backgroundColor: '#fff'
+              }} />
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={handleDelete}
+                disabled={deleting || deleteConfirmText !== todo.text}
+                style={{
+                  fontSize: '12px', padding: '6px 14px', backgroundColor: '#ef4444', color: '#fff',
+                  border: 'none', borderRadius: '6px', cursor: 'pointer',
+                  opacity: deleting || deleteConfirmText !== todo.text ? 0.4 : 1
+                }}>{deleting ? 'Deleting...' : 'I understand, delete permanently'}</button>
+              <button onClick={() => { setShowDelete(false); setDeleteConfirmText('') }} style={{
+                fontSize: '12px', padding: '6px 14px', backgroundColor: '#fff', color: '#374151',
+                border: '1px solid #d1d5db', borderRadius: '6px', cursor: 'pointer'
+              }}>Cancel</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

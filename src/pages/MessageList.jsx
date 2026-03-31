@@ -17,7 +17,7 @@ export default function MessageList() {
       .select(`
         id, title, archived, created_at,
         created_by_user:users!messages_created_by_fkey(display_name, avatar_url),
-        replies:message_replies(id),
+        replies:message_replies(id, body, created_at),
         todos(id, completed),
         mentions:message_replies(reply_mentions(read, user_id))
       `)
@@ -38,6 +38,14 @@ export default function MessageList() {
   const openTodos = (msg) =>
     msg.todos?.filter(t => !t.completed).length || 0
 
+  const firstReplyPreview = (msg) => {
+    if (!msg.replies || msg.replies.length === 0) return null
+    const sorted = [...msg.replies].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    const body = sorted[0]?.body || ''
+    const firstPara = body.split(/\n\n+/)[0].trim()
+    return firstPara.length > 120 ? firstPara.slice(0, 120) + '…' : firstPara
+  }
+
   const tabs = ['active', 'archived', 'all']
 
   return (
@@ -47,7 +55,7 @@ export default function MessageList() {
           background: 'none', border: 'none', cursor: 'pointer',
           fontSize: '13px', color: '#6b7280', padding: 0
         }}>← Back</button>
-        <h1 style={{ fontSize: '18px', fontWeight: '700', margin: 0 }}>Message Board</h1>
+        <h1 style={{ fontSize: '18px', fontWeight: '700', margin: 0 }}>Tickets</h1>
         <div style={{ width: '40px' }} />
       </div>
 
@@ -87,15 +95,15 @@ export default function MessageList() {
             onMouseLeave={e => e.currentTarget.style.backgroundColor = '#fff'}
           >
             <img src={msg.created_by_user?.avatar_url} alt=""
-              style={{ width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+              style={{ width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, marginTop: '1px' }} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                 {hasUnread(msg) && (
                   <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#ef4444', flexShrink: 0 }} />
                 )}
                 <span style={{
                   fontSize: '14px', fontWeight: '500', color: '#111',
-                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
                 }}>{msg.title}</span>
                 {msg.archived && (
                   <span style={{
@@ -103,20 +111,19 @@ export default function MessageList() {
                     borderRadius: '4px', padding: '1px 6px', flexShrink: 0
                   }}>archived</span>
                 )}
-              </div>
-              <div style={{ display: 'flex', gap: '12px', marginTop: '4px' }}>
-                <span style={{ fontSize: '12px', color: '#9ca3af' }}>
+                <span style={{ fontSize: '11px', color: '#c4c9d4', marginLeft: '2px' }}>
                   {msg.replies?.length || 0} {msg.replies?.length === 1 ? 'reply' : 'replies'}
-                </span>
-                {openTodos(msg) > 0 && (
-                  <span style={{ fontSize: '12px', color: '#f59e0b' }}>
-                    {openTodos(msg)} open todo{openTodos(msg) > 1 ? 's' : ''}
-                  </span>
-                )}
-                <span style={{ fontSize: '12px', color: '#9ca3af' }}>
-                  {new Date(msg.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  {openTodos(msg) > 0 && <span style={{ color: '#f59e0b' }}> · {openTodos(msg)} todo{openTodos(msg) > 1 ? 's' : ''}</span>}
+                  {' · '}{new Date(msg.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 </span>
               </div>
+              {firstReplyPreview(msg) && (
+                <p style={{
+                  margin: '3px 0 0', fontSize: '12px', color: '#6b7280',
+                  lineHeight: '1.5', overflow: 'hidden', display: '-webkit-box',
+                  WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', textAlign: 'left'
+                }}>{firstReplyPreview(msg)}</p>
+              )}
             </div>
           </div>
         ))}

@@ -36,9 +36,9 @@ const styles = {
 const hoverOn = e => e.currentTarget.style.backgroundColor = '#f9fafb'
 const hoverOff = e => e.currentTarget.style.backgroundColor = '#fff'
 
-// ─── Message Board ────────────────────────────────────────────────────────────
+// ─── Tickets ──────────────────────────────────────────────────────────────────
 
-function MessageBoard({ users }) {
+function Tickets({ users }) {
   const [messages, setMessages] = useState([])
   const [showModal, setShowModal] = useState(false)
   const { user } = useAuth()
@@ -71,7 +71,7 @@ function MessageBoard({ users }) {
     <>
       <div style={styles.card}>
         <div style={styles.header}>
-          <span style={styles.title}>Message Board</span>
+          <span style={styles.title}>Tickets</span>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <button style={styles.newBtn} onClick={() => setShowModal(true)}>+ New</button>
             <button style={styles.viewAll} onClick={() => navigate('/home/messages')}>View all →</button>
@@ -199,6 +199,17 @@ function TodoPanel({ users }) {
   )
 }
 
+const FILE_TYPE_META = {
+  PDF:  { icon: '📄', bg: '#fef2f2' },
+  JPG:  { icon: '🖼️', bg: '#f5f3ff' },
+  JPEG: { icon: '🖼️', bg: '#f5f3ff' },
+  PNG:  { icon: '🖼️', bg: '#f5f3ff' },
+  WEBP: { icon: '🖼️', bg: '#f5f3ff' },
+  DOCX: { icon: '📝', bg: '#eff6ff' },
+  XLSX: { icon: '📊', bg: '#f0fdf4' },
+}
+const fileMeta = (type) => FILE_TYPE_META[type?.toUpperCase()] || { icon: '📁', bg: '#f9fafb' }
+
 // ─── File Panel ───────────────────────────────────────────────────────────────
 
 function FilePanel() {
@@ -217,17 +228,8 @@ function FilePanel() {
       .neq('status', 'void')
       .order('pinned', { ascending: false })
       .order('created_at', { ascending: false })
-      .limit(8)
+      .limit(12)
     setFiles(data || [])
-  }
-
-  const fileIcon = (type) => {
-    const t = type?.toUpperCase()
-    if (t === 'PDF') return '📄'
-    if (['JPG','JPEG','PNG','WEBP'].includes(t)) return '🖼️'
-    if (t === 'DOCX') return '📝'
-    if (t === 'XLSX') return '📊'
-    return '📁'
   }
 
   return (
@@ -240,27 +242,64 @@ function FilePanel() {
             <button style={styles.viewAll} onClick={() => navigate('/home/files')}>View all →</button>
           </div>
         </div>
-        <div>
-          {files.length === 0 && <p style={styles.empty}>No files</p>}
-          {files.map(f => (
-            <div key={f.id} style={styles.row}
-              onClick={() => navigate(`/home/files/${f.id}`)}
-              onMouseEnter={hoverOn} onMouseLeave={hoverOff}>
-              <span style={{ fontSize: '16px', flexShrink: 0 }}>{fileIcon(f.file_type)}</span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  {f.pinned && <span style={{ fontSize: '10px', color: '#f59e0b' }}>📌</span>}
-                  <span style={{ fontSize: '13px', color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {f.filename}
-                  </span>
+
+        {files.length === 0 && <p style={styles.empty}>No files</p>}
+
+        {files.length > 0 && (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: '8px',
+            padding: '12px',
+          }}>
+            {files.map(f => {
+              const meta = fileMeta(f.file_type)
+              return (
+                <div key={f.id}
+                  onClick={() => navigate(`/home/files/${f.id}`)}
+                  style={{
+                    position: 'relative',
+                    backgroundColor: '#fafafa', border: '1px solid #f0f0f0',
+                    borderRadius: '8px', padding: '10px 8px 8px',
+                    cursor: 'pointer', textAlign: 'center',
+                    transition: 'box-shadow 0.15s, border-color 0.15s',
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)'
+                    e.currentTarget.style.borderColor = '#d1d5db'
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.boxShadow = 'none'
+                    e.currentTarget.style.borderColor = '#f0f0f0'
+                  }}
+                >
+                  {f.pinned && (
+                    <span style={{
+                      position: 'absolute', top: '4px', right: '5px',
+                      fontSize: '9px', opacity: 0.6
+                    }}>📌</span>
+                  )}
+                  <div style={{
+                    width: '36px', height: '36px', borderRadius: '8px',
+                    backgroundColor: meta.bg, display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', margin: '0 auto 6px', fontSize: '18px',
+                  }}>
+                    {meta.icon}
+                  </div>
+                  <div style={{
+                    fontSize: '10.5px', color: '#374151', fontWeight: '500',
+                    display: '-webkit-box', WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                    lineHeight: '1.35', wordBreak: 'break-word',
+                  }}>{f.filename}</div>
+                  {f.status === 'complete' && (
+                    <div style={{ fontSize: '9px', color: '#16a34a', marginTop: '3px' }}>✓</div>
+                  )}
                 </div>
-                <span style={{ fontSize: '11px', color: '#9ca3af' }}>
-                  {f.status === 'complete' ? '✓ Complete · ' : ''}{f.file_type}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {showModal && (
@@ -284,7 +323,7 @@ export default function Home() {
 
   return (
     <div style={styles.wrap}>
-      <MessageBoard users={users} />
+      <Tickets users={users} />
       <TodoPanel users={users} />
       <FilePanel />
     </div>

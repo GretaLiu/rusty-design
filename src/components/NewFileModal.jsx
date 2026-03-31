@@ -25,6 +25,7 @@ export default function NewFileModal({ messageId = null, onClose, onCreated }) {
   const [dragging, setDragging] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [uploadError, setUploadError] = useState('')
   const dropRef = useRef(null)
 
   const addFiles = (incoming) => {
@@ -51,11 +52,19 @@ export default function NewFileModal({ messageId = null, onClose, onCreated }) {
   const handleUpload = async () => {
     if (files.length === 0) return
     setUploading(true)
+    setUploadError('')
     let done = 0
+    const failed = []
     for (const file of files) {
       const ext = file.name.split('.').pop()
       const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-      await supabase.storage.from('files').upload(path, file)
+      const { error: uploadError } = await supabase.storage.from('files').upload(path, file)
+      if (uploadError) {
+        failed.push(file.name)
+        done++
+        setProgress(Math.round((done / files.length) * 100))
+        continue
+      }
       const { data: { publicUrl } } = supabase.storage.from('files').getPublicUrl(path)
       const { data: fileRow } = await supabase.from('files').insert({
         ...(messageId ? { message_id: messageId } : {}),
@@ -74,7 +83,11 @@ export default function NewFileModal({ messageId = null, onClose, onCreated }) {
       setProgress(Math.round((done / files.length) * 100))
     }
     setUploading(false)
-    onCreated()
+    if (failed.length > 0) {
+      setUploadError(`Failed to upload: ${failed.join(', ')}`)
+    } else {
+      onCreated()
+    }
   }
 
   return (
@@ -151,6 +164,10 @@ export default function NewFileModal({ messageId = null, onClose, onCreated }) {
               Uploading... {progress}%
             </p>
           </div>
+        )}
+
+        {uploadError && (
+          <p style={{ fontSize: '12px', color: '#ef4444', marginBottom: '12px' }}>{uploadError}</p>
         )}
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>

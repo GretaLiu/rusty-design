@@ -1,7 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { Document, Page, pdfjs } from 'react-pdf'
+import 'react-pdf/dist/Page/AnnotationLayer.css'
+import 'react-pdf/dist/Page/TextLayer.css'
+
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
 
 const fileIcon = (type) => {
   const t = type?.toUpperCase()
@@ -20,9 +25,12 @@ export default function FileDetail() {
   const [file, setFile] = useState(null)
   const [log, setLog] = useState([])
   const [showDelete, setShowDelete] = useState(false)
-  const [deletePassword, setDeletePassword] = useState('')
-  const [deleteError, setDeleteError] = useState('')
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [numPages, setNumPages] = useState(null)
+  const [pageNumber, setPageNumber] = useState(1)
+  const [pdfError, setPdfError] = useState(null)
+  const [lightbox, setLightbox] = useState(false)
 
   useEffect(() => { fetchAll() }, [id])
 
@@ -65,15 +73,6 @@ export default function FileDetail() {
 
   const handleDelete = async () => {
     setDeleting(true)
-    setDeleteError('')
-    const { data } = await supabase.rpc('verify_user', {
-      p_username: user.username, p_password: deletePassword
-    })
-    if (!data || data.length === 0) {
-      setDeleteError('Incorrect password')
-      setDeleting(false)
-      return
-    }
     const path = file.file_url.split('/files/')[1]
     await supabase.storage.from('files').remove([path])
     await supabase.from('files').delete().eq('id', id)
@@ -93,36 +92,10 @@ export default function FileDetail() {
     <div style={{ maxWidth: '640px', margin: '0 auto', padding: '24px' }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+      <div style={{ marginBottom: '24px' }}>
         <button onClick={() => navigate(-1)} style={{
           background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color: '#6b7280', padding: 0
         }}>← Back</button>
-        {!showDelete
-          ? <button onClick={() => setShowDelete(true)} style={{
-              fontSize: '12px', padding: '3px 10px', backgroundColor: '#fff', color: '#ef4444',
-              border: '1px solid #fee2e2', borderRadius: '5px', cursor: 'pointer'
-            }}>Delete</button>
-          : (
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              <input type="password" placeholder="Your password" value={deletePassword}
-                onChange={e => { setDeletePassword(e.target.value); setDeleteError('') }}
-                style={{
-                  padding: '3px 8px', border: `1px solid ${deleteError ? '#ef4444' : '#d1d5db'}`,
-                  borderRadius: '5px', fontSize: '12px', width: '130px'
-                }} />
-              <button onClick={handleDelete} disabled={deleting || !deletePassword} style={{
-                fontSize: '12px', padding: '3px 10px', backgroundColor: '#ef4444', color: '#fff',
-                border: 'none', borderRadius: '5px', cursor: 'pointer',
-                opacity: deleting || !deletePassword ? 0.6 : 1
-              }}>{deleting ? '...' : 'Confirm'}</button>
-              <button onClick={() => { setShowDelete(false); setDeletePassword(''); setDeleteError('') }} style={{
-                fontSize: '12px', padding: '3px 10px', backgroundColor: '#fff', color: '#374151',
-                border: '1px solid #d1d5db', borderRadius: '5px', cursor: 'pointer'
-              }}>Cancel</button>
-              {deleteError && <span style={{ fontSize: '12px', color: '#ef4444' }}>{deleteError}</span>}
-            </div>
-          )
-        }
       </div>
 
       {/* File info */}
@@ -175,54 +148,160 @@ export default function FileDetail() {
 
         {/* Actions */}
         {file.status !== 'void' && (
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
             <a href={file.file_url} target="_blank" rel="noreferrer" style={{
-              fontSize: '12px', padding: '5px 12px', backgroundColor: '#111', color: '#fff',
-              borderRadius: '6px', textDecoration: 'none'
+              fontSize: '12px', padding: '6px 14px', backgroundColor: '#111', color: '#fff',
+              borderRadius: '6px', textDecoration: 'none', fontWeight: '500'
             }}>Open file ↗</a>
+            <div style={{ width: '1px', height: '20px', backgroundColor: '#e5e7eb' }} />
             <button onClick={togglePin} style={{
-              fontSize: '12px', padding: '5px 12px', border: '1px solid #e5e7eb',
-              borderRadius: '6px', cursor: 'pointer', backgroundColor: '#fff', color: '#374151'
-            }}>{file.pinned ? '📌 Unpin' : 'Pin'}</button>
+              fontSize: '12px', padding: '6px 12px',
+              border: file.pinned ? '1px solid #fbbf24' : '1px solid #e5e7eb',
+              borderRadius: '6px', cursor: 'pointer',
+              backgroundColor: file.pinned ? '#fffbeb' : '#fff',
+              color: file.pinned ? '#b45309' : '#6b7280'
+            }}>{file.pinned ? '📌 Pinned' : '📌 Pin'}</button>
             {file.status === 'active' && (
               <button onClick={() => updateStatus('complete')} style={{
-                fontSize: '12px', padding: '5px 12px', border: '1px solid #e5e7eb',
-                borderRadius: '6px', cursor: 'pointer', backgroundColor: '#fff', color: '#374151'
-              }}>Mark Complete</button>
+                fontSize: '12px', padding: '6px 12px',
+                border: '1px solid #bbf7d0', borderRadius: '6px', cursor: 'pointer',
+                backgroundColor: '#f0fdf4', color: '#15803d'
+              }}>✓ Mark Complete</button>
             )}
             {file.status === 'complete' && (
               <button onClick={() => updateStatus('active')} style={{
-                fontSize: '12px', padding: '5px 12px', border: '1px solid #e5e7eb',
-                borderRadius: '6px', cursor: 'pointer', backgroundColor: '#fff', color: '#374151'
-              }}>Reactivate</button>
+                fontSize: '12px', padding: '6px 12px',
+                border: '1px solid #e5e7eb', borderRadius: '6px', cursor: 'pointer',
+                backgroundColor: '#fff', color: '#6b7280'
+              }}>↺ Reactivate</button>
             )}
             <button onClick={() => updateStatus('void')} style={{
-              fontSize: '12px', padding: '5px 12px', border: '1px solid #fee2e2',
-              borderRadius: '6px', cursor: 'pointer', backgroundColor: '#fff', color: '#ef4444'
-            }}>Void</button>
+              fontSize: '12px', padding: '6px 12px',
+              border: '1px solid #fca5a5', borderRadius: '6px', cursor: 'pointer',
+              backgroundColor: '#fff5f5', color: '#dc2626'
+            }}>✕ Void</button>
           </div>
         )}
       </div>
 
-      {/* Preview */}
+      {/* Image preview */}
       {file.status !== 'void' && isImage(file.file_type) && (
         <div style={{
           backgroundColor: '#fff', border: '1px solid #e5e7eb',
           borderRadius: '8px', padding: '16px', marginBottom: '20px'
         }}>
           <h3 style={{ fontSize: '13px', fontWeight: '600', margin: '0 0 12px' }}>Preview</h3>
-          <img src={file.file_url} alt={file.filename}
-            style={{ maxWidth: '100%', borderRadius: '6px', display: 'block' }} />
+          <div style={{
+            backgroundColor: '#f9fafb', borderRadius: '6px', overflow: 'hidden',
+            cursor: 'zoom-in', display: 'flex', justifyContent: 'center', alignItems: 'center',
+            maxHeight: '320px',
+          }} onClick={() => setLightbox(true)}>
+            <img
+              src={file.file_url}
+              alt={file.filename}
+              style={{
+                maxWidth: '100%', maxHeight: '320px',
+                objectFit: 'contain', display: 'block',
+                borderRadius: '4px',
+              }}
+            />
+          </div>
+          <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '6px', textAlign: 'center' }}>
+            Click to expand
+          </p>
         </div>
       )}
 
-      {file.status !== 'void' && file.file_type === 'PDF' && (
+      {/* PDF preview */}
+      {file.status !== 'void' && file.file_type?.toUpperCase() === 'PDF' && (
         <div style={{
           backgroundColor: '#fff', border: '1px solid #e5e7eb',
           borderRadius: '8px', padding: '16px', marginBottom: '20px'
         }}>
-          <h3 style={{ fontSize: '13px', fontWeight: '600', margin: '0 0 12px' }}>Preview</h3>
-          <iframe src={file.file_url} style={{ width: '100%', height: '500px', border: 'none', borderRadius: '6px' }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <h3 style={{ fontSize: '13px', fontWeight: '600', margin: 0 }}>Preview</h3>
+            {numPages && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  onClick={() => setPageNumber(p => Math.max(1, p - 1))}
+                  disabled={pageNumber <= 1}
+                  style={{
+                    padding: '3px 8px', fontSize: '12px', border: '1px solid #e5e7eb',
+                    borderRadius: '4px', cursor: pageNumber <= 1 ? 'not-allowed' : 'pointer',
+                    backgroundColor: '#fff', color: pageNumber <= 1 ? '#d1d5db' : '#374151'
+                  }}>‹</button>
+                <span style={{ fontSize: '12px', color: '#6b7280' }}>{pageNumber} / {numPages}</span>
+                <button
+                  onClick={() => setPageNumber(p => Math.min(numPages, p + 1))}
+                  disabled={pageNumber >= numPages}
+                  style={{
+                    padding: '3px 8px', fontSize: '12px', border: '1px solid #e5e7eb',
+                    borderRadius: '4px', cursor: pageNumber >= numPages ? 'not-allowed' : 'pointer',
+                    backgroundColor: '#fff', color: pageNumber >= numPages ? '#d1d5db' : '#374151'
+                  }}>›</button>
+              </div>
+            )}
+          </div>
+
+          {pdfError ? (
+            <div style={{
+              backgroundColor: '#f9fafb', borderRadius: '6px', padding: '32px',
+              textAlign: 'center', color: '#6b7280', fontSize: '13px'
+            }}>
+              <div style={{ fontSize: '28px', marginBottom: '8px' }}>📄</div>
+              <p style={{ margin: '0 0 12px' }}>Preview unavailable</p>
+              <a href={file.file_url} target="_blank" rel="noreferrer" style={{
+                fontSize: '12px', padding: '6px 14px', backgroundColor: '#111', color: '#fff',
+                borderRadius: '6px', textDecoration: 'none'
+              }}>Open file ↗</a>
+            </div>
+          ) : (
+            <div style={{
+              backgroundColor: '#f9fafb', borderRadius: '6px', overflow: 'auto',
+              display: 'flex', justifyContent: 'center', padding: '16px',
+            }}>
+              <Document
+                file={file.file_url}
+                onLoadSuccess={({ numPages }) => { setNumPages(numPages); setPdfError(null) }}
+                onLoadError={(err) => setPdfError(err?.message || String(err))}
+                onSourceError={(err) => setPdfError(err?.message || String(err))}
+                loading={
+                  <div style={{ padding: '32px', color: '#9ca3af', fontSize: '13px' }}>Loading PDF…</div>
+                }
+              >
+                <Page
+                  pageNumber={pageNumber}
+                  width={560}
+                  renderTextLayer={true}
+                  renderAnnotationLayer={true}
+                />
+              </Document>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Image lightbox */}
+      {lightbox && (
+        <div
+          onClick={() => setLightbox(false)}
+          style={{
+            position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 1000, cursor: 'zoom-out', padding: '24px',
+          }}
+        >
+          <img
+            src={file.file_url}
+            alt={file.filename}
+            style={{ maxWidth: '100%', maxHeight: '90vh', objectFit: 'contain', borderRadius: '4px' }}
+            onClick={e => e.stopPropagation()}
+          />
+          <button onClick={() => setLightbox(false)} style={{
+            position: 'fixed', top: '16px', right: '20px',
+            background: 'none', border: 'none', color: '#fff',
+            fontSize: '24px', cursor: 'pointer', lineHeight: 1,
+          }}>✕</button>
         </div>
       )}
 
@@ -249,6 +328,53 @@ export default function FileDetail() {
             </span>
           </div>
         ))}
+      </div>
+
+      {/* Danger zone */}
+      <div style={{
+        marginTop: '48px', borderTop: '1px solid #fee2e2', paddingTop: '24px'
+      }}>
+        <h3 style={{ fontSize: '13px', fontWeight: '600', color: '#ef4444', margin: '0 0 6px' }}>Danger Zone</h3>
+        <p style={{ fontSize: '12px', color: '#9ca3af', margin: '0 0 16px' }}>
+          Permanently delete this file from storage and all records. This cannot be undone.
+        </p>
+        {!showDelete ? (
+          <button onClick={() => setShowDelete(true)} style={{
+            fontSize: '12px', padding: '6px 14px', backgroundColor: '#fff', color: '#ef4444',
+            border: '1px solid #fca5a5', borderRadius: '6px', cursor: 'pointer'
+          }}>Delete this file</button>
+        ) : (
+          <div style={{
+            border: '1px solid #fca5a5', borderRadius: '8px', padding: '16px', backgroundColor: '#fff5f5'
+          }}>
+            <p style={{ fontSize: '12px', color: '#374151', margin: '0 0 10px' }}>
+              Type <strong style={{ fontFamily: 'monospace' }}>{file.filename}</strong> to confirm deletion:
+            </p>
+            <input
+              value={deleteConfirmText}
+              onChange={e => setDeleteConfirmText(e.target.value)}
+              placeholder={file.filename}
+              style={{
+                padding: '6px 10px', border: '1px solid #fca5a5', borderRadius: '6px',
+                fontSize: '13px', width: '100%', boxSizing: 'border-box', marginBottom: '10px',
+                backgroundColor: '#fff'
+              }} />
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={handleDelete}
+                disabled={deleting || deleteConfirmText !== file.filename}
+                style={{
+                  fontSize: '12px', padding: '6px 14px', backgroundColor: '#ef4444', color: '#fff',
+                  border: 'none', borderRadius: '6px', cursor: 'pointer',
+                  opacity: deleting || deleteConfirmText !== file.filename ? 0.4 : 1
+                }}>{deleting ? 'Deleting...' : 'I understand, delete permanently'}</button>
+              <button onClick={() => { setShowDelete(false); setDeleteConfirmText('') }} style={{
+                fontSize: '12px', padding: '6px 14px', backgroundColor: '#fff', color: '#374151',
+                border: '1px solid #d1d5db', borderRadius: '6px', cursor: 'pointer'
+              }}>Cancel</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

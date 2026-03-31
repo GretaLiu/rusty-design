@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -24,7 +24,9 @@ export default function NewMessageModal({ users, onClose, onCreated }) {
   const [todoText, setTodoText] = useState('')
   const [todoAssignee, setTodoAssignee] = useState('')
   const [files, setFiles] = useState([]) // { file, filename }
+  const [dragging, setDragging] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const dropRef = useRef(null)
 
   // ── @mention ───────────────────────────────────────────────────────────────
 
@@ -71,13 +73,31 @@ export default function NewMessageModal({ users, onClose, onCreated }) {
 
   // ── Files ──────────────────────────────────────────────────────────────────
 
-  const handleFileSelect = (e) => {
-    const selected = Array.from(e.target.files)
+  const addValidFiles = useCallback((selected) => {
     const valid = selected.filter(f => ALLOWED_TYPES.includes(f.type))
     const invalid = selected.filter(f => !ALLOWED_TYPES.includes(f.type))
     if (invalid.length > 0) alert(`Skipped ${invalid.length} unsupported file(s). Only PDF, images, Word, Excel allowed.`)
     setFiles(prev => [...prev, ...valid.map(f => ({ file: f, filename: f.name }))])
+  }, [])
+
+  const handleFileSelect = (e) => {
+    addValidFiles(Array.from(e.target.files))
     e.target.value = ''
+  }
+
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    setDragging(true)
+  }
+
+  const handleDragLeave = (e) => {
+    if (!dropRef.current?.contains(e.relatedTarget)) setDragging(false)
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    setDragging(false)
+    addValidFiles(Array.from(e.dataTransfer.files))
   }
 
   const removeFile = (i) => setFiles(prev => prev.filter((_, idx) => idx !== i))
@@ -252,16 +272,23 @@ export default function NewMessageModal({ users, onClose, onCreated }) {
               }} />
             <select value={todoAssignee} onChange={e => setTodoAssignee(e.target.value)}
               style={{
-                padding: '7px 10px', border: '1px solid #d1d5db',
-                borderRadius: '6px', fontSize: '13px', color: todoAssignee ? '#111' : '#9ca3af'
+                padding: '7px 10px',
+                border: `1px solid ${todoText.trim() && !todoAssignee ? '#f97316' : '#d1d5db'}`,
+                borderRadius: '6px', fontSize: '13px', color: todoAssignee ? '#111' : '#9ca3af',
+                outline: todoText.trim() && !todoAssignee ? '2px solid #fed7aa' : 'none',
+                transition: 'border-color 0.15s'
               }}>
-              <option value="">Assign to...</option>
+              <option value="">Assign to…</option>
               {users.map(u => <option key={u.id} value={u.id}>{u.display_name}</option>)}
             </select>
-            <button onClick={addTodo} style={{
-              padding: '7px 12px', backgroundColor: '#f3f4f6', border: '1px solid #e5e7eb',
-              borderRadius: '6px', fontSize: '13px', cursor: 'pointer', color: '#374151', whiteSpace: 'nowrap'
-            }}>+ Add</button>
+            <button onClick={addTodo} disabled={!todoText.trim() || !todoAssignee} title="Add todo" style={{
+              padding: '7px 10px',
+              backgroundColor: todoText.trim() && todoAssignee ? '#111' : '#f3f4f6',
+              border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '14px',
+              cursor: todoText.trim() && todoAssignee ? 'pointer' : 'not-allowed',
+              color: todoText.trim() && todoAssignee ? '#fff' : '#d1d5db',
+              lineHeight: 1, flexShrink: 0, transition: 'background-color 0.15s, color 0.15s'
+            }}>✓</button>
           </div>
         </div>
 
@@ -284,12 +311,29 @@ export default function NewMessageModal({ users, onClose, onCreated }) {
               }}>✕</button>
             </div>
           ))}
-          <label style={{
-            display: 'inline-block', padding: '7px 12px', backgroundColor: '#f3f4f6',
-            border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '13px',
-            cursor: 'pointer', color: '#374151'
-          }}>
-            + Choose files
+          <label
+            ref={dropRef}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              gap: '6px', padding: '20px 16px',
+              border: `2px dashed ${dragging ? '#6366f1' : '#d1d5db'}`,
+              borderRadius: '8px', cursor: 'pointer',
+              backgroundColor: dragging ? '#f5f3ff' : '#fafafa',
+              transition: 'border-color 0.15s, background-color 0.15s'
+            }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={dragging ? '#6366f1' : '#9ca3af'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            <span style={{ fontSize: '13px', color: dragging ? '#6366f1' : '#374151', fontWeight: '500' }}>
+              Drag &amp; drop files here, or{' '}
+              <span style={{ color: '#6366f1', textDecoration: 'underline' }}>click to browse</span>
+            </span>
+            <span style={{ fontSize: '11px', color: '#9ca3af' }}>PDF, images, Word, Excel</span>
             <input type="file" multiple style={{ display: 'none' }} onChange={handleFileSelect}
               accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx" />
           </label>

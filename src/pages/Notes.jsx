@@ -315,7 +315,7 @@ export default function Notes() {
             ) : (
               <div style={{
                 fontSize: '14px', lineHeight: '1.8', color: '#374151',
-                whiteSpace: 'pre-wrap', wordBreak: 'break-word'
+                whiteSpace: 'pre-wrap', wordBreak: 'break-word', textAlign: 'left'
               }}>
                 {selected.body}
               </div>
