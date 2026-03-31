@@ -86,15 +86,14 @@ export default function MessageList() {
 
   return (
     <div className="px-6 py-6 max-w-[720px] mx-auto">
-      <div className="flex items-center justify-between mb-5">
+      <div className="relative flex items-center justify-center mb-5">
         <button
           onClick={() => navigate('/home')}
-          className="text-sm text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer p-0 transition-colors"
+          className="absolute left-0 text-sm text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer p-0 transition-colors"
         >
           ← Back
         </button>
-        <h1 className="text-lg font-bold text-gray-900 m-0">Tickets</h1>
-        <div className="w-10" />
+        <h1 className="text-sm font-semibold text-gray-900 m-0">Tickets</h1>
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="w-full">

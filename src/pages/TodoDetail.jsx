@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { Pencil, X, Check } from 'lucide-react'
 
 export default function TodoDetail() {
   const { id } = useParams()
@@ -89,194 +90,220 @@ export default function TodoDetail() {
   if (!todo) return null
 
   return (
-    <div style={{ maxWidth: '640px', margin: '0 auto', padding: '24px' }}>
+    <div className="max-w-[600px] mx-auto px-6 py-6">
 
-      {/* Header */}
-      <div style={{ marginBottom: '24px' }}>
-        <button onClick={() => navigate(-1)} style={{
-          background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color: '#6b7280', padding: 0
-        }}>← Back</button>
-      </div>
+      {/* Back */}
+      <button
+        onClick={() => navigate(-1)}
+        className="text-sm text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer p-0 mb-6 transition-colors"
+      >
+        ← Back
+      </button>
 
-      {/* Todo */}
-      <div style={{
-        backgroundColor: '#fff', border: '1px solid #e5e7eb',
-        borderRadius: '8px', padding: '20px', marginBottom: '20px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '16px' }}>
-          <button onClick={toggleComplete} style={{
-            width: '20px', height: '20px', borderRadius: '50%', flexShrink: 0, marginTop: '2px',
-            border: `2px solid ${todo.completed ? '#10b981' : '#d1d5db'}`,
-            backgroundColor: todo.completed ? '#10b981' : 'transparent',
-            cursor: 'pointer', padding: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center'
-          }}>
-            {todo.completed && <span style={{ color: '#fff', fontSize: '11px' }}>✓</span>}
+      {/* Main card */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
+
+        {/* Todo text + complete toggle */}
+        <div className="flex items-start gap-3 mb-5">
+          <button
+            onClick={toggleComplete}
+            className={`w-5 h-5 rounded-full shrink-0 mt-0.5 border-2 flex items-center justify-center p-0 cursor-pointer transition-colors ${
+              todo.completed
+                ? 'border-emerald-500 bg-emerald-500'
+                : 'border-gray-300 bg-transparent hover:border-emerald-400'
+            }`}
+          >
+            {todo.completed && <span className="text-white text-[10px] leading-none">✓</span>}
           </button>
-          <div style={{ flex: 1 }}>
+
+          <div className="flex-1 min-w-0">
             {editing ? (
-              <div>
-                <input value={editText} onChange={e => setEditText(e.target.value)}
+              <div className="space-y-2">
+                <input
+                  value={editText}
+                  onChange={e => setEditText(e.target.value)}
                   autoFocus
-                  onKeyDown={e => { if (e.key === 'Enter') handleEdit(); if (e.key === 'Escape') setEditing(false) }}
-                  style={{
-                    width: '100%', padding: '6px 8px', border: '1px solid #d1d5db',
-                    borderRadius: '6px', fontSize: '15px', boxSizing: 'border-box', marginBottom: '8px'
-                  }} />
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <button onClick={handleEdit} style={{
-                    fontSize: '12px', padding: '3px 10px', backgroundColor: '#111', color: '#fff',
-                    border: 'none', borderRadius: '5px', cursor: 'pointer'
-                  }}>Save</button>
-                  <button onClick={() => { setEditing(false); setEditText(todo.text) }} style={{
-                    fontSize: '12px', padding: '3px 10px', backgroundColor: '#fff', color: '#374151',
-                    border: '1px solid #d1d5db', borderRadius: '5px', cursor: 'pointer'
-                  }}>Cancel</button>
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleEdit()
+                    if (e.key === 'Escape') { setEditing(false); setEditText(todo.text) }
+                  }}
+                  className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 box-border"
+                />
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={handleEdit}
+                    className="flex items-center gap-1 text-xs px-2.5 py-1 bg-gray-900 text-white border-none rounded-md cursor-pointer hover:bg-gray-700 transition-colors"
+                  >
+                    <Check size={11} /> Save
+                  </button>
+                  <button
+                    onClick={() => { setEditing(false); setEditText(todo.text) }}
+                    className="flex items-center gap-1 text-xs px-2.5 py-1 bg-white text-gray-600 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50 transition-colors"
+                  >
+                    <X size={11} /> Cancel
+                  </button>
                 </div>
               </div>
             ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{
-                  fontSize: '15px', fontWeight: '500',
-                  color: todo.completed ? '#9ca3af' : '#111',
-                  textDecoration: todo.completed ? 'line-through' : 'none'
-                }}>{todo.text}</span>
-                <button onClick={() => setEditing(true)} style={{
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  fontSize: '12px', color: '#9ca3af', padding: '0 4px'
-                }}>Edit</button>
+              <div className="flex items-center gap-2 group">
+                <span className={`text-base font-medium leading-snug ${
+                  todo.completed ? 'text-gray-400 line-through' : 'text-gray-900'
+                }`}>
+                  {todo.text}
+                </span>
+                <button
+                  onClick={() => setEditing(true)}
+                  className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer transition-all rounded"
+                  title="Edit"
+                >
+                  <Pencil size={13} />
+                </button>
               </div>
             )}
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '24px', fontSize: '12px', color: '#6b7280' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span>Assigned to</span>
-            <img src={todo.assigned_user?.avatar_url} alt=""
-              style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover' }} />
-            <span style={{ fontWeight: '500', color: '#374151' }}>{todo.assigned_user?.display_name}</span>
+        {/* Meta row */}
+        <div className="flex flex-wrap gap-5 text-xs text-gray-500 mb-4">
+          <div className="flex items-center gap-1.5">
+            <span className="text-gray-400">Assigned to</span>
+            <img src={todo.assigned_user?.avatar_url} alt="" className="w-4 h-4 rounded-full object-cover" />
+            <span className="font-medium text-gray-700">{todo.assigned_user?.display_name}</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span>Created by</span>
-            <img src={todo.created_by_user?.avatar_url} alt=""
-              style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover' }} />
-            <span style={{ fontWeight: '500', color: '#374151' }}>{todo.created_by_user?.display_name}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-gray-400">Created by</span>
+            <img src={todo.created_by_user?.avatar_url} alt="" className="w-4 h-4 rounded-full object-cover" />
+            <span className="font-medium text-gray-700">{todo.created_by_user?.display_name}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-gray-400">Created</span>
+            <span className="text-gray-600">{formatDate(todo.created_at)}</span>
           </div>
         </div>
 
+        {/* From message */}
         {todo.message && (
-          <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f3f4f6' }}>
-            <span style={{ fontSize: '12px', color: '#9ca3af' }}>From message: </span>
-            <button onClick={() => navigate(`/home/messages/${todo.message.id}`)} style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              fontSize: '12px', color: '#2563eb', padding: 0
-            }}>{todo.message.title}</button>
+          <div className="pt-3 border-t border-gray-100 text-xs">
+            <span className="text-gray-400">From ticket: </span>
+            <button
+              onClick={() => navigate(`/home/messages/${todo.message.id}`)}
+              className="text-blue-500 hover:text-blue-700 bg-transparent border-none cursor-pointer p-0 transition-colors"
+            >
+              {todo.message.title}
+            </button>
           </div>
         )}
 
+        {/* Completed banner */}
         {todo.completed && (
-          <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f3f4f6', fontSize: '12px', color: '#9ca3af' }}>
-            Completed by {todo.completed_by_user?.display_name} · {formatDate(todo.completed_at)}
+          <div className={`${todo.message ? 'mt-2' : 'pt-3 border-t border-gray-100 mt-3'} flex items-center gap-1.5 text-xs text-emerald-600`}>
+            <span className="w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
+              <span className="text-white text-[9px]">✓</span>
+            </span>
+            Completed by <span className="font-medium">{todo.completed_by_user?.display_name}</span>
+            <span className="text-gray-400">· {formatDate(todo.completed_at)}</span>
           </div>
         )}
       </div>
 
       {/* Edit history */}
       {todo.edits?.length > 0 && (
-        <div style={{
-          backgroundColor: '#fff', border: '1px solid #e5e7eb',
-          borderRadius: '8px', padding: '16px', marginBottom: '20px'
-        }}>
-          <h3 style={{ fontSize: '13px', fontWeight: '600', margin: '0 0 12px' }}>Edit History</h3>
-          {todo.edits.map(edit => (
-            <div key={edit.id} style={{ marginBottom: '10px', fontSize: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                <img src={edit.edited_by_user?.avatar_url} alt=""
-                  style={{ width: '16px', height: '16px', borderRadius: '50%', objectFit: 'cover' }} />
-                <span style={{ color: '#6b7280' }}>{edit.edited_by_user?.display_name} · {formatDate(edit.edited_at)}</span>
+        <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
+          <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3 mt-0">
+            Edit History
+          </h3>
+          <div className="space-y-3">
+            {todo.edits.map(edit => (
+              <div key={edit.id}>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <img src={edit.edited_by_user?.avatar_url} alt="" className="w-4 h-4 rounded-full object-cover" />
+                  <span className="text-xs text-gray-500">
+                    {edit.edited_by_user?.display_name}
+                  </span>
+                  <span className="text-xs text-gray-300">·</span>
+                  <span className="text-xs text-gray-400">{formatDate(edit.edited_at)}</span>
+                </div>
+                <div className="pl-5.5 flex items-center gap-2 text-xs">
+                  <span className="text-gray-400 line-through">{edit.old_text}</span>
+                  <span className="text-gray-300">→</span>
+                  <span className="text-gray-700">{edit.new_text}</span>
+                </div>
               </div>
-              <div style={{ paddingLeft: '22px' }}>
-                <span style={{ color: '#9ca3af', textDecoration: 'line-through' }}>{edit.old_text}</span>
-                <span style={{ color: '#9ca3af', margin: '0 6px' }}>→</span>
-                <span style={{ color: '#111' }}>{edit.new_text}</span>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
 
       {/* Activity log */}
-      <div style={{
-        backgroundColor: '#fff', border: '1px solid #e5e7eb',
-        borderRadius: '8px', padding: '16px'
-      }}>
-        <h3 style={{ fontSize: '13px', fontWeight: '600', margin: '0 0 12px' }}>Activity</h3>
-        {log.length === 0 && <p style={{ fontSize: '13px', color: '#9ca3af' }}>No activity</p>}
-        {log.map(entry => (
-          <div key={entry.id} style={{
-            display: 'flex', alignItems: 'center', gap: '8px',
-            marginBottom: '8px', fontSize: '12px'
-          }}>
-            <img src={entry.performed_by_user?.avatar_url} alt=""
-              style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-            <span style={{ color: '#374151' }}>
-              <span style={{ fontWeight: '500' }}>{entry.performed_by_user?.display_name}</span>
-              {' '}{entry.action} this todo
-            </span>
-            <span style={{ color: '#9ca3af', marginLeft: 'auto', flexShrink: 0 }}>
-              {formatDate(entry.created_at)}
-            </span>
-          </div>
-        ))}
+      <div className="bg-white border border-gray-200 rounded-xl p-5">
+        <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3 mt-0">
+          Activity
+        </h3>
+        {log.length === 0 && <p className="text-sm text-gray-400">No activity</p>}
+        <div className="space-y-2">
+          {log.map(entry => (
+            <div key={entry.id} className="flex items-center gap-2">
+              <img
+                src={entry.performed_by_user?.avatar_url} alt=""
+                className="w-5 h-5 rounded-full object-cover shrink-0"
+              />
+              <span className="flex-1 text-xs text-gray-600">
+                <span className="font-medium text-gray-800">{entry.performed_by_user?.display_name}</span>
+                {' '}{entry.action} this todo
+              </span>
+              <span className="text-xs text-gray-400 shrink-0 tabular-nums">
+                {formatDate(entry.created_at)}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Danger zone */}
-      <div style={{
-        marginTop: '48px', borderTop: '1px solid #fee2e2', paddingTop: '24px'
-      }}>
-        <h3 style={{ fontSize: '13px', fontWeight: '600', color: '#ef4444', margin: '0 0 6px' }}>Danger Zone</h3>
-        <p style={{ fontSize: '12px', color: '#9ca3af', margin: '0 0 16px' }}>
+      <div className="mt-12 border-t border-red-100 pt-6">
+        <h3 className="text-xs font-semibold text-red-500 mb-1 mt-0">Danger Zone</h3>
+        <p className="text-xs text-gray-400 mb-4">
           Permanently delete this todo. This cannot be undone.
         </p>
         {!showDelete ? (
-          <button onClick={() => setShowDelete(true)} style={{
-            fontSize: '12px', padding: '6px 14px', backgroundColor: '#fff', color: '#ef4444',
-            border: '1px solid #fca5a5', borderRadius: '6px', cursor: 'pointer'
-          }}>Delete this todo</button>
+          <button
+            onClick={() => setShowDelete(true)}
+            className="text-xs px-3.5 py-1.5 bg-white text-red-400 border border-red-200 rounded-md cursor-pointer hover:bg-red-50 transition-colors"
+          >
+            Delete this todo
+          </button>
         ) : (
-          <div style={{
-            border: '1px solid #fca5a5', borderRadius: '8px', padding: '16px', backgroundColor: '#fff5f5'
-          }}>
-            <p style={{ fontSize: '12px', color: '#374151', margin: '0 0 10px' }}>
-              Type <strong style={{ fontFamily: 'monospace' }}>{todo.text}</strong> to confirm deletion:
+          <div className="border border-red-200 rounded-lg p-4 bg-red-50">
+            <p className="text-xs text-gray-600 mb-2.5">
+              Type <code className="font-mono bg-white px-1 py-0.5 rounded border border-red-100">{todo.text}</code> to confirm:
             </p>
             <input
               value={deleteConfirmText}
               onChange={e => setDeleteConfirmText(e.target.value)}
               placeholder={todo.text}
-              style={{
-                padding: '6px 10px', border: '1px solid #fca5a5', borderRadius: '6px',
-                fontSize: '13px', width: '100%', boxSizing: 'border-box', marginBottom: '10px',
-                backgroundColor: '#fff'
-              }} />
-            <div style={{ display: 'flex', gap: '8px' }}>
+              className="w-full px-2.5 py-1.5 border border-red-200 rounded-md text-sm mb-2.5 bg-white focus:outline-none box-border"
+            />
+            <div className="flex gap-2">
               <button
                 onClick={handleDelete}
                 disabled={deleting || deleteConfirmText !== todo.text}
-                style={{
-                  fontSize: '12px', padding: '6px 14px', backgroundColor: '#ef4444', color: '#fff',
-                  border: 'none', borderRadius: '6px', cursor: 'pointer',
-                  opacity: deleting || deleteConfirmText !== todo.text ? 0.4 : 1
-                }}>{deleting ? 'Deleting...' : 'I understand, delete permanently'}</button>
-              <button onClick={() => { setShowDelete(false); setDeleteConfirmText('') }} style={{
-                fontSize: '12px', padding: '6px 14px', backgroundColor: '#fff', color: '#374151',
-                border: '1px solid #d1d5db', borderRadius: '6px', cursor: 'pointer'
-              }}>Cancel</button>
+                className={`text-xs px-3.5 py-1.5 bg-red-500 text-white border-none rounded-md cursor-pointer hover:bg-red-600 transition-colors ${
+                  deleting || deleteConfirmText !== todo.text ? 'opacity-40 cursor-not-allowed' : ''
+                }`}
+              >
+                {deleting ? 'Deleting…' : 'I understand, delete permanently'}
+              </button>
+              <button
+                onClick={() => { setShowDelete(false); setDeleteConfirmText('') }}
+                className="text-xs px-3.5 py-1.5 bg-white text-gray-600 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         )}
       </div>
+
     </div>
   )
 }

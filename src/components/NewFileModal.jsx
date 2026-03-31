@@ -99,12 +99,12 @@ export default function NewFileModal({ messageId = null, onClose, onCreated }) {
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
-      <DialogContent className="w-[500px] max-w-[95vw]">
-        <DialogHeader>
+      <DialogContent className="w-[500px] max-w-[95vw] flex flex-col max-h-[85vh]">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="text-base font-bold">Upload Files</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 pt-1">
+        <div className="flex flex-col gap-4 pt-1 min-h-0 flex-1">
           {/* Drop zone */}
           <div
             ref={dropRef}
@@ -112,7 +112,7 @@ export default function NewFileModal({ messageId = null, onClose, onCreated }) {
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onClick={() => document.getElementById('file-input-modal').click()}
-            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+            className={`shrink-0 border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
               dragging ? 'border-gray-900 bg-gray-50' : 'border-gray-300 bg-white hover:bg-gray-50'
             }`}
           >
@@ -134,7 +134,7 @@ export default function NewFileModal({ messageId = null, onClose, onCreated }) {
 
           {/* File list */}
           {files.length > 0 && (
-            <div className="space-y-1 max-h-48 overflow-y-auto">
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-1 pr-0.5">
               {files.map((f, i) => {
                 const ext = f.name.split('.').pop().toUpperCase()
                 return (
@@ -154,7 +154,7 @@ export default function NewFileModal({ messageId = null, onClose, onCreated }) {
 
           {/* Progress bar */}
           {uploading && (
-            <div className="space-y-1.5">
+            <div className="shrink-0 space-y-1.5">
               <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-gray-900 transition-[width] duration-200"
@@ -166,10 +166,10 @@ export default function NewFileModal({ messageId = null, onClose, onCreated }) {
           )}
 
           {uploadError && (
-            <p className="text-xs text-red-500">{uploadError}</p>
+            <p className="shrink-0 text-xs text-red-500">{uploadError}</p>
           )}
 
-          <div className="flex justify-end gap-2 pt-1">
+          <div className="shrink-0 flex justify-end gap-2 pt-1">
             <Button variant="outline" onClick={onClose} disabled={uploading} className="text-sm">
               Cancel
             </Button>

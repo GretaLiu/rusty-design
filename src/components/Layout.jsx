@@ -14,7 +14,9 @@ export default function Layout() {
     <div className="min-h-screen flex flex-col">
       <nav className="flex items-center justify-between px-6 h-13 border-b border-gray-200 bg-white sticky top-0 z-10">
         <div className="flex items-center gap-6">
-          <span className="font-bold text-base text-gray-900 tracking-tight">Rusty Design</span>
+          <div className="flex items-center gap-2">
+            <img src="/rusty-design-logo.svg" alt="Rusty Design Dispatch" className="h-10" />
+          </div>
           <div className="flex items-center gap-1">
             {[
               { to: '/home', label: 'Home' },

@@ -138,19 +138,17 @@ export default function TodoList() {
   return (
     <>
       <div className="px-6 py-6 max-w-[1000px] mx-auto">
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate('/home')}
-              className="text-sm text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer p-0 transition-colors"
-            >
-              ← Back
-            </button>
-            <h1 className="text-lg font-bold text-gray-900 m-0">Todos</h1>
-          </div>
+        <div className="relative flex items-center justify-center mb-5">
+          <button
+            onClick={() => navigate('/home')}
+            className="absolute left-0 text-sm text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer p-0 transition-colors"
+          >
+            ← Back
+          </button>
+          <h1 className="text-sm font-semibold text-gray-900 m-0">Todos</h1>
           <button
             onClick={() => setShowModal(true)}
-            className="text-xs px-3 py-1.5 bg-gray-900 text-white border-none rounded-md cursor-pointer hover:bg-gray-700 transition-colors"
+            className="absolute right-0 text-xs px-3 py-1.5 bg-gray-900 text-white border-none rounded-md cursor-pointer hover:bg-gray-700 transition-colors"
           >
             + New Todo
           </button>

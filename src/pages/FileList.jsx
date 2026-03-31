@@ -5,11 +5,11 @@ import { useAuth } from '../context/AuthContext'
 import NewFileModal from '../components/NewFileModal'
 import FileIcon from '../components/FileIcon'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { LayoutGrid, List, Pin } from 'lucide-react'
+import { LayoutGrid, List, Pin, Archive } from 'lucide-react'
 
 const STATUS_CLS = {
   active:   'text-emerald-700 bg-emerald-50 border-emerald-200',
-  complete: 'text-blue-700   bg-blue-50   border-blue-200',
+  complete: 'text-amber-700  bg-amber-50  border-amber-200',
   void:     'text-red-500    bg-red-50    border-red-200',
 }
 
@@ -78,9 +78,10 @@ export default function FileList() {
       {f.status === 'active' && (
         <button
           onClick={e => updateStatus(e, f, 'complete')}
-          className="text-xs px-2 py-1 border border-gray-200 rounded bg-white text-gray-500 cursor-pointer hover:bg-gray-50 transition-colors"
+          title="Archive"
+          className="text-gray-300 hover:text-amber-500 cursor-pointer bg-transparent border-none p-1 leading-none transition-colors"
         >
-          Complete
+          <Archive size={14} strokeWidth={1.8} />
         </button>
       )}
       {f.status !== 'void' && (
@@ -99,17 +100,15 @@ export default function FileList() {
       <div className="px-6 py-6 max-w-[900px] mx-auto">
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate('/home')}
-              className="text-sm text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer p-0 transition-colors"
-            >
-              ← Back
-            </button>
-            <h1 className="text-lg font-bold text-gray-900 m-0">Files</h1>
-          </div>
-          <div className="flex items-center gap-2">
+        <div className="relative flex items-center justify-center mb-5">
+          <button
+            onClick={() => navigate('/home')}
+            className="absolute left-0 text-sm text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer p-0 transition-colors"
+          >
+            ← Back
+          </button>
+          <h1 className="text-sm font-semibold text-gray-900 m-0">Files</h1>
+          <div className="absolute right-0 flex items-center gap-2">
             {/* View toggle */}
             <div className="flex border border-gray-200 rounded-lg overflow-hidden">
               <button
@@ -141,7 +140,7 @@ export default function FileList() {
           <TabsList className="w-full mb-4">
             {['active', 'complete', 'void', 'all'].map(t => (
               <TabsTrigger key={t} value={t} className="flex-1 capitalize gap-1.5">
-                {t}
+                {t === 'complete' ? 'Archived' : t}
                 <span className="text-[11px] opacity-60 tabular-nums">{tabCount(t)}</span>
               </TabsTrigger>
             ))}
@@ -159,7 +158,7 @@ export default function FileList() {
                   {filtered.map(f => (
                     <div
                       key={f.id}
-                      onClick={() => navigate(`/home/files/${f.id}`)}
+                      onClick={() => navigate(`/home/files/${f.id}`, { state: { fileIds: filtered.map(x => x.id) } })}
                       className={`relative bg-white border border-gray-200 rounded-xl px-3 pt-3.5 pb-2.5 cursor-pointer text-center hover:border-gray-300 hover:shadow-sm transition-all ${f.status === 'void' ? 'opacity-45' : ''}`}
                     >
                       {f.pinned && (
@@ -177,10 +176,19 @@ export default function FileList() {
                         <span className="text-[10px] text-gray-400 uppercase tracking-wide">{f.file_type}</span>
                         {f.status !== 'active' && (
                           <span className={`text-[9px] px-1.5 py-0.5 rounded border ${STATUS_CLS[f.status]}`}>
-                            {f.status}
+                            {f.status === 'complete' ? 'archived' : f.status}
                           </span>
                         )}
                       </div>
+                      {f.status === 'active' && (
+                        <button
+                          onClick={e => updateStatus(e, f, 'complete')}
+                          title="Archive"
+                          className="absolute bottom-2 right-2.5 text-gray-300 hover:text-amber-500 cursor-pointer bg-transparent border-none p-0 leading-none transition-colors"
+                        >
+                          <Archive size={16} strokeWidth={1.8} />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -190,7 +198,7 @@ export default function FileList() {
                   {filtered.map(f => (
                     <div
                       key={f.id}
-                      onClick={() => navigate(`/home/files/${f.id}`)}
+                      onClick={() => navigate(`/home/files/${f.id}`, { state: { fileIds: filtered.map(x => x.id) } })}
                       className={`flex items-center gap-3 px-4 py-3 border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors last:border-b-0 ${f.status === 'void' ? 'opacity-45' : ''}`}
                     >
                       <FileIcon type={f.file_type} size="sm" />
@@ -202,7 +210,7 @@ export default function FileList() {
                           </span>
                           {f.status !== 'active' && (
                             <span className={`text-[10px] px-1.5 py-0.5 rounded border shrink-0 ${STATUS_CLS[f.status]}`}>
-                              {f.status}
+                              {f.status === 'complete' ? 'archived' : f.status}
                             </span>
                           )}
                         </div>

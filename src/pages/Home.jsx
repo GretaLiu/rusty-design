@@ -16,7 +16,7 @@ function Card({ title, actions, children }) {
         <span className="text-sm font-semibold text-gray-900">{title}</span>
         <div className="flex items-center gap-2">{actions}</div>
       </div>
-      <div className="flex-1">{children}</div>
+      <div className="flex-1 min-h-[560px]">{children}</div>
     </div>
   )
 }
@@ -137,11 +137,73 @@ function Tickets({ users }) {
   )
 }
 
+// ─── Todo Complete Confirm Modal ──────────────────────────────────────────────
+
+function CompleteConfirmModal({ todo, onConfirm, onCancel }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onCancel} />
+      <div className="relative bg-white rounded-2xl shadow-xl px-8 py-7 w-80 flex flex-col items-center gap-4">
+        <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center">
+          <svg className="w-6 h-6 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <div className="text-center">
+          <p className="text-sm font-semibold text-gray-900">Complete the task?</p>
+          <p className="text-xs text-gray-400 mt-1 line-clamp-2">{todo.text}</p>
+        </div>
+        <div className="flex gap-2 w-full">
+          <button
+            onClick={onCancel}
+            className="flex-1 text-sm text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-lg py-2 border-none cursor-pointer transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 text-sm text-white bg-emerald-500 hover:bg-emerald-600 rounded-lg py-2 border-none cursor-pointer transition-colors font-medium"
+          >
+            Complete
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Todo Dot ─────────────────────────────────────────────────────────────────
+
+function TodoDot({ onClick }) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="relative w-5 h-5 shrink-0 flex items-center justify-center bg-transparent border-none cursor-pointer p-0"
+    >
+      {hovered ? (
+        <svg className="w-4 h-4 text-emerald-500 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <circle cx="12" cy="12" r="10" className="fill-emerald-50 stroke-emerald-400" strokeWidth={1.5} />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M7 13l3.5 3.5L17 9" />
+        </svg>
+      ) : (
+        <span className="relative flex h-3 w-3">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-60" />
+          <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-400 opacity-90" />
+        </span>
+      )}
+    </button>
+  )
+}
+
 // ─── Todo Panel ───────────────────────────────────────────────────────────────
 
 function TodoPanel({ users }) {
   const [todos, setTodos] = useState([])
   const [showModal, setShowModal] = useState(false)
+  const [confirmTodo, setConfirmTodo] = useState(null)
   const { user } = useAuth()
   const navigate = useNavigate()
 
@@ -160,8 +222,14 @@ function TodoPanel({ users }) {
     setTodos(data || [])
   }
 
-  const toggleComplete = async (e, todo) => {
+  const handleDotClick = (e, todo) => {
     e.stopPropagation()
+    setConfirmTodo(todo)
+  }
+
+  const confirmComplete = async () => {
+    const todo = confirmTodo
+    setConfirmTodo(null)
     await supabase.from('todos').update({
       completed: true, completed_by: user.id, completed_at: new Date().toISOString()
     }).eq('id', todo.id)
@@ -189,10 +257,7 @@ function TodoPanel({ users }) {
               onClick={() => navigate(`/home/todos/${todo.id}`)}
               className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors last:border-b-0"
             >
-              <button
-                onClick={e => toggleComplete(e, todo)}
-                className="w-4 h-4 rounded-full shrink-0 border-2 border-gray-300 hover:border-emerald-400 bg-transparent cursor-pointer p-0 transition-colors"
-              />
+              <TodoDot onClick={e => handleDotClick(e, todo)} />
               <span className="flex-1 min-w-0 text-sm text-gray-800 truncate">
                 {todo.text}
               </span>
@@ -204,6 +269,14 @@ function TodoPanel({ users }) {
           ))
         }
       </Card>
+
+      {confirmTodo && (
+        <CompleteConfirmModal
+          todo={confirmTodo}
+          onConfirm={confirmComplete}
+          onCancel={() => setConfirmTodo(null)}
+        />
+      )}
 
       {showModal && (
         <NewTodoModal
@@ -226,16 +299,32 @@ function FilePanel() {
   useEffect(() => { fetchFiles() }, [])
 
   const fetchFiles = async () => {
-    const { data } = await supabase
+    const fileSelect = `id, filename, file_type, status, pinned, created_at,
+        created_by_user:users!files_created_by_fkey(display_name, avatar_url)`
+
+    const { data: pinnedData } = await supabase
       .from('files')
-      .select(`id, filename, file_type, status, pinned, created_at,
-        created_by_user:users!files_created_by_fkey(display_name, avatar_url)`)
+      .select(fileSelect)
       .is('message_id', null)
       .neq('status', 'void')
-      .order('pinned', { ascending: false })
+      .eq('pinned', true)
       .order('created_at', { ascending: false })
-      .limit(12)
-    setFiles(data || [])
+
+    const pinned = pinnedData || []
+    const restLimit = 15 - Math.ceil(pinned.length / 3) * 3
+
+    const { data: restData } = restLimit > 0
+      ? await supabase
+          .from('files')
+          .select(fileSelect)
+          .is('message_id', null)
+          .neq('status', 'void')
+          .eq('pinned', false)
+          .order('created_at', { ascending: false })
+          .limit(restLimit)
+      : { data: [] }
+
+    setFiles([...pinned, ...(restData || [])])
   }
 
   return (
@@ -249,32 +338,45 @@ function FilePanel() {
       >
         {files.length === 0
           ? <EmptyState text="No files" />
-          : (
-            <div className="grid grid-cols-4 gap-2 p-3">
-              {files.map(f => (
-                  <div
-                    key={f.id}
-                    onClick={() => navigate(`/home/files/${f.id}`)}
-                    className="relative bg-white border border-gray-100 rounded-xl px-2 pt-3 pb-2 cursor-pointer text-center hover:border-gray-300 hover:shadow-sm transition-all"
-                  >
-                    {f.pinned && (
-                      <span className="absolute top-1.5 right-1.5 text-amber-400 opacity-70">
-                        <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>
-                      </span>
-                    )}
-                    <div className="flex justify-center mb-2">
-                      <FileIcon type={f.file_type} size="sm" />
-                    </div>
-                    <div className="text-[10.5px] text-gray-700 font-medium leading-snug break-words line-clamp-2">
-                      {f.filename}
-                    </div>
-                    {f.status === 'complete' && (
-                      <div className="text-[9px] text-emerald-600 mt-0.5 font-medium">✓ complete</div>
-                    )}
+          : (() => {
+              const pinned = files.filter(f => f.pinned)
+              const rest = files.filter(f => !f.pinned)
+              const allFileIds = [...pinned, ...rest].map(f => f.id)
+              const FileCard = ({ f }) => (
+                <div
+                  key={f.id}
+                  onClick={() => navigate(`/home/files/${f.id}`, { state: { fileIds: allFileIds } })}
+                  className="relative bg-white border border-gray-100 rounded-xl px-2 pt-3 pb-2 cursor-pointer text-center hover:border-gray-300 hover:shadow-sm transition-all"
+                >
+                  <div className="flex justify-center mb-2">
+                    <FileIcon type={f.file_type} size="sm" />
                   </div>
-              ))}
-            </div>
-          )
+                  <div className="text-[10.5px] text-gray-700 font-medium leading-snug break-words line-clamp-2">
+                    {f.filename}
+                  </div>
+                  {f.status === 'complete' && (
+                    <div className="text-[9px] text-emerald-600 mt-0.5 font-medium">✓ complete</div>
+                  )}
+                </div>
+              )
+              return (
+                <div className="p-3 space-y-3">
+                  {pinned.length > 0 && (
+                    <>
+                      <div className="grid grid-cols-3 gap-2">
+                        {pinned.map(f => <FileCard key={f.id} f={f} />)}
+                      </div>
+                      {rest.length > 0 && <div className="border-t border-gray-100" />}
+                    </>
+                  )}
+                  {rest.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2">
+                      {rest.map(f => <FileCard key={f.id} f={f} />)}
+                    </div>
+                  )}
+                </div>
+              )
+            })()
         }
       </Card>
 

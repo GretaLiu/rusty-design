@@ -316,22 +316,16 @@ export default function MessageDetail() {
       </div>
 
       {/* ── Title block ── */}
-      <div className="text-center mb-8">
-        <div className="flex items-center justify-center gap-2 mb-1">
+      <div className="mb-5 pb-4 border-b border-gray-100">
+        <div className="flex items-center gap-1 mb-0.5 flex-wrap">
+          <p className="text-xl font-semibold text-gray-800 m-0">{message.title}</p>
           {message.archived && (
-            <span className="text-[11px] text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">
+            <span className="text-[10px] text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">
               Archived
             </span>
           )}
-          <h1 className="text-xl font-bold text-gray-900 m-0">{message.title}</h1>
         </div>
-        <div className="flex items-center justify-center gap-2 text-xs text-gray-400">
-          <img
-            src={message.created_by_user?.avatar_url} alt=""
-            className="w-4 h-4 rounded-full object-cover"
-          />
-          <span>{message.created_by_user?.display_name}</span>
-          <span>·</span>
+        <div className="flex items-center gap-1.5 text-xs text-gray-400 flex-wrap">
           <span>{formatDate(message.created_at)}</span>
           {openCount > 0 && (
             <>
