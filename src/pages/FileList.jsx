@@ -3,22 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import NewFileModal from '../components/NewFileModal'
+import FileIcon from '../components/FileIcon'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { LayoutGrid, List, Pin } from 'lucide-react'
 
-const FILE_TYPE_META = {
-  PDF:  { icon: '📄', color: '#ef4444', bg: '#fef2f2' },
-  JPG:  { icon: '🖼️', color: '#8b5cf6', bg: '#f5f3ff' },
-  JPEG: { icon: '🖼️', color: '#8b5cf6', bg: '#f5f3ff' },
-  PNG:  { icon: '🖼️', color: '#8b5cf6', bg: '#f5f3ff' },
-  WEBP: { icon: '🖼️', color: '#8b5cf6', bg: '#f5f3ff' },
-  DOCX: { icon: '📝', color: '#2563eb', bg: '#eff6ff' },
-  XLSX: { icon: '📊', color: '#16a34a', bg: '#f0fdf4' },
-}
-const fileMeta = (type) => FILE_TYPE_META[type?.toUpperCase()] || { icon: '📁', color: '#6b7280', bg: '#f9fafb' }
-
-const STATUS_STYLE = {
-  active:   { color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
-  complete: { color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe' },
-  void:     { color: '#ef4444', bg: '#fef2f2', border: '#fecaca' },
+const STATUS_CLS = {
+  active:   'text-emerald-700 bg-emerald-50 border-emerald-200',
+  complete: 'text-blue-700   bg-blue-50   border-blue-200',
+  void:     'text-red-500    bg-red-50    border-red-200',
 }
 
 export default function FileList() {
@@ -47,6 +39,8 @@ export default function FileList() {
     return files.filter(f => f.status === tab)
   }, [files, tab])
 
+  const tabCount = (t) => t === 'all' ? files.length : files.filter(f => f.status === t).length
+
   const updateStatus = async (e, file, status) => {
     e.stopPropagation()
     await supabase.from('files').update({ status }).eq('id', file.id)
@@ -67,215 +61,167 @@ export default function FileList() {
     fetchFiles()
   }
 
-  const tabs = ['active', 'complete', 'void', 'all']
+  const ActionButtons = ({ f }) => (
+    <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
+      {f.status !== 'void' && (
+        <button
+          onClick={e => togglePin(e, f)}
+          className={`text-xs px-2 py-1 border rounded cursor-pointer transition-colors ${
+            f.pinned
+              ? 'border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100'
+              : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
+          }`}
+        >
+          {f.pinned ? 'Unpin' : 'Pin'}
+        </button>
+      )}
+      {f.status === 'active' && (
+        <button
+          onClick={e => updateStatus(e, f, 'complete')}
+          className="text-xs px-2 py-1 border border-gray-200 rounded bg-white text-gray-500 cursor-pointer hover:bg-gray-50 transition-colors"
+        >
+          Complete
+        </button>
+      )}
+      {f.status !== 'void' && (
+        <button
+          onClick={e => updateStatus(e, f, 'void')}
+          className="text-xs px-2 py-1 border border-red-200 rounded bg-white text-red-400 cursor-pointer hover:bg-red-50 transition-colors"
+        >
+          Void
+        </button>
+      )}
+    </div>
+  )
 
   return (
     <>
-      <div style={{ padding: '24px', maxWidth: '900px', margin: '0 auto' }}>
+      <div className="px-6 py-6 max-w-[900px] mx-auto">
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button onClick={() => navigate('/home')} style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              fontSize: '13px', color: '#6b7280', padding: 0
-            }}>← Back</button>
-            <h1 style={{ fontSize: '18px', fontWeight: '700', margin: 0 }}>Files</h1>
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/home')}
+              className="text-sm text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer p-0 transition-colors"
+            >
+              ← Back
+            </button>
+            <h1 className="text-lg font-bold text-gray-900 m-0">Files</h1>
           </div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div className="flex items-center gap-2">
             {/* View toggle */}
-            <div style={{
-              display: 'flex', border: '1px solid #e5e7eb', borderRadius: '6px', overflow: 'hidden'
-            }}>
-              {[['grid', '⊞'], ['list', '☰']].map(([v, icon]) => (
-                <button key={v} onClick={() => setView(v)} style={{
-                  padding: '5px 10px', border: 'none', cursor: 'pointer', fontSize: '14px',
-                  backgroundColor: view === v ? '#111' : '#fff',
-                  color: view === v ? '#fff' : '#6b7280',
-                }}>{icon}</button>
-              ))}
+            <div className="flex border border-gray-200 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setView('grid')}
+                className={`p-2 cursor-pointer border-none transition-colors ${view === 'grid' ? 'bg-gray-900 text-white' : 'bg-white text-gray-400 hover:bg-gray-50'}`}
+                title="Grid view"
+              >
+                <LayoutGrid size={14} />
+              </button>
+              <button
+                onClick={() => setView('list')}
+                className={`p-2 cursor-pointer border-none transition-colors ${view === 'list' ? 'bg-gray-900 text-white' : 'bg-white text-gray-400 hover:bg-gray-50'}`}
+                title="List view"
+              >
+                <List size={14} />
+              </button>
             </div>
-            <button onClick={() => setShowModal(true)} style={{
-              fontSize: '12px', padding: '6px 12px', backgroundColor: '#111', color: '#fff',
-              border: 'none', borderRadius: '5px', cursor: 'pointer'
-            }}>+ Upload</button>
+            <button
+              onClick={() => setShowModal(true)}
+              className="text-xs px-3 py-1.5 bg-gray-900 text-white border-none rounded-md cursor-pointer hover:bg-gray-700 transition-colors"
+            >
+              + Upload
+            </button>
           </div>
         </div>
 
         {/* Tabs */}
-        <div style={{
-          display: 'flex', gap: '4px', marginBottom: '16px',
-          backgroundColor: '#f3f4f6', borderRadius: '8px', padding: '4px'
-        }}>
-          {tabs.map(t => (
-            <button key={t} onClick={() => setTab(t)} style={{
-              flex: 1, padding: '6px', border: 'none', borderRadius: '6px', cursor: 'pointer',
-              fontSize: '13px', fontWeight: tab === t ? '600' : '400',
-              backgroundColor: tab === t ? '#fff' : 'transparent',
-              color: tab === t ? '#111' : '#6b7280',
-              boxShadow: tab === t ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-              textTransform: 'capitalize'
-            }}>
-              {t}
-              <span style={{
-                marginLeft: '5px', fontSize: '11px',
-                color: tab === t ? '#6b7280' : '#9ca3af'
-              }}>
-                {t === 'all' ? files.length : files.filter(f => f.status === t).length}
-              </span>
-            </button>
+        <Tabs value={tab} onValueChange={setTab} className="w-full">
+          <TabsList className="w-full mb-4">
+            {['active', 'complete', 'void', 'all'].map(t => (
+              <TabsTrigger key={t} value={t} className="flex-1 capitalize gap-1.5">
+                {t}
+                <span className="text-[11px] opacity-60 tabular-nums">{tabCount(t)}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          {['active', 'complete', 'void', 'all'].map(t => (
+            <TabsContent key={t} value={t}>
+              {filtered.length === 0 ? (
+                <div className="bg-white border border-gray-200 rounded-xl py-12 text-center text-sm text-gray-400">
+                  No files
+                </div>
+              ) : view === 'grid' ? (
+                /* ── Grid ── */
+                <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))' }}>
+                  {filtered.map(f => (
+                    <div
+                      key={f.id}
+                      onClick={() => navigate(`/home/files/${f.id}`)}
+                      className={`relative bg-white border border-gray-200 rounded-xl px-3 pt-3.5 pb-2.5 cursor-pointer text-center hover:border-gray-300 hover:shadow-sm transition-all ${f.status === 'void' ? 'opacity-45' : ''}`}
+                    >
+                      {f.pinned && (
+                        <span className="absolute top-2 right-2 text-amber-400">
+                          <Pin size={11} strokeWidth={2} />
+                        </span>
+                      )}
+                      <div className="flex justify-center mb-2.5">
+                        <FileIcon type={f.file_type} size="lg" />
+                      </div>
+                      <div className={`text-[11px] font-medium leading-snug break-words line-clamp-2 mb-1.5 ${f.status === 'void' ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
+                        {f.filename}
+                      </div>
+                      <div className="flex items-center justify-center gap-1 flex-wrap">
+                        <span className="text-[10px] text-gray-400 uppercase tracking-wide">{f.file_type}</span>
+                        {f.status !== 'active' && (
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded border ${STATUS_CLS[f.status]}`}>
+                            {f.status}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                /* ── List ── */
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                  {filtered.map(f => (
+                    <div
+                      key={f.id}
+                      onClick={() => navigate(`/home/files/${f.id}`)}
+                      className={`flex items-center gap-3 px-4 py-3 border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors last:border-b-0 ${f.status === 'void' ? 'opacity-45' : ''}`}
+                    >
+                      <FileIcon type={f.file_type} size="sm" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          {f.pinned && <Pin size={10} className="text-amber-400 shrink-0" strokeWidth={2} />}
+                          <span className={`text-sm font-medium truncate ${f.status === 'void' ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+                            {f.filename}
+                          </span>
+                          {f.status !== 'active' && (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded border shrink-0 ${STATUS_CLS[f.status]}`}>
+                              {f.status}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex gap-2 mt-0.5">
+                          <span className="text-xs text-gray-400">{f.created_by_user?.display_name}</span>
+                          <span className="text-xs text-gray-300">·</span>
+                          <span className="text-xs text-gray-400">
+                            {new Date(f.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </span>
+                        </div>
+                      </div>
+                      <ActionButtons f={f} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
           ))}
-        </div>
-
-        {/* Empty state */}
-        {filtered.length === 0 && (
-          <div style={{
-            backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px',
-            padding: '48px 24px', textAlign: 'center', color: '#9ca3af', fontSize: '13px'
-          }}>No files</div>
-        )}
-
-        {/* Grid view */}
-        {view === 'grid' && filtered.length > 0 && (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
-            gap: '12px',
-          }}>
-            {filtered.map(f => {
-              const meta = fileMeta(f.file_type)
-              const isVoid = f.status === 'void'
-              return (
-                <div key={f.id}
-                  onClick={() => navigate(`/home/files/${f.id}`)}
-                  style={{
-                    position: 'relative',
-                    backgroundColor: '#fff', border: '1px solid #e5e7eb',
-                    borderRadius: '10px', padding: '14px 10px 10px',
-                    cursor: 'pointer', textAlign: 'center',
-                    opacity: isVoid ? 0.45 : 1,
-                    transition: 'box-shadow 0.15s, border-color 0.15s',
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)'
-                    e.currentTarget.style.borderColor = '#d1d5db'
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.boxShadow = 'none'
-                    e.currentTarget.style.borderColor = '#e5e7eb'
-                  }}
-                >
-                  {/* Pin badge */}
-                  {f.pinned && (
-                    <span style={{
-                      position: 'absolute', top: '6px', right: '7px',
-                      fontSize: '10px', opacity: 0.7
-                    }}>📌</span>
-                  )}
-
-                  {/* File icon with colored background */}
-                  <div style={{
-                    width: '52px', height: '52px', borderRadius: '12px',
-                    backgroundColor: meta.bg, display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', margin: '0 auto 10px', fontSize: '26px',
-                  }}>
-                    {meta.icon}
-                  </div>
-
-                  {/* Filename */}
-                  <div style={{
-                    fontSize: '11.5px', fontWeight: '500', color: isVoid ? '#9ca3af' : '#111',
-                    textDecoration: isVoid ? 'line-through' : 'none',
-                    wordBreak: 'break-word',
-                    display: '-webkit-box', WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                    lineHeight: '1.4', marginBottom: '6px',
-                    minHeight: '32px',
-                  }}>{f.filename}</div>
-
-                  {/* Type + status */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '10px', color: '#9ca3af' }}>{f.file_type}</span>
-                    {f.status !== 'active' && (
-                      <span style={{
-                        fontSize: '9.5px', padding: '1px 5px', borderRadius: '3px',
-                        backgroundColor: STATUS_STYLE[f.status]?.bg,
-                        color: STATUS_STYLE[f.status]?.color,
-                        border: `1px solid ${STATUS_STYLE[f.status]?.border}`,
-                      }}>{f.status}</span>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        {/* List view */}
-        {view === 'list' && filtered.length > 0 && (
-          <div style={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
-            {filtered.map(f => {
-              const meta = fileMeta(f.file_type)
-              return (
-                <div key={f.id}
-                  onClick={() => navigate(`/home/files/${f.id}`)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '12px',
-                    padding: '10px 16px', borderBottom: '1px solid #f3f4f6',
-                    cursor: 'pointer', backgroundColor: '#fff',
-                    opacity: f.status === 'void' ? 0.4 : 1
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f9fafb'}
-                  onMouseLeave={e => e.currentTarget.style.backgroundColor = '#fff'}
-                >
-                  <div style={{
-                    width: '34px', height: '34px', borderRadius: '8px',
-                    backgroundColor: meta.bg, display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', fontSize: '18px', flexShrink: 0,
-                  }}>{meta.icon}</div>
-
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      {f.pinned && <span style={{ fontSize: '10px' }}>📌</span>}
-                      <span style={{
-                        fontSize: '13px', color: '#111', fontWeight: '500',
-                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                        textDecoration: f.status === 'void' ? 'line-through' : 'none'
-                      }}>{f.filename}</span>
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
-                      <span style={{ fontSize: '11px', color: '#9ca3af' }}>{f.created_by_user?.display_name}</span>
-                      <span style={{ fontSize: '11px', color: '#9ca3af' }}>
-                        {new Date(f.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-                    {f.status !== 'void' && (
-                      <button onClick={e => togglePin(e, f)} style={{
-                        fontSize: '11px', padding: '2px 8px', border: '1px solid #e5e7eb',
-                        borderRadius: '4px', cursor: 'pointer', backgroundColor: '#fff', color: '#6b7280'
-                      }}>{f.pinned ? 'Unpin' : 'Pin'}</button>
-                    )}
-                    {f.status === 'active' && (
-                      <button onClick={e => updateStatus(e, f, 'complete')} style={{
-                        fontSize: '11px', padding: '2px 8px', border: '1px solid #e5e7eb',
-                        borderRadius: '4px', cursor: 'pointer', backgroundColor: '#fff', color: '#6b7280'
-                      }}>Complete</button>
-                    )}
-                    {f.status !== 'void' && (
-                      <button onClick={e => updateStatus(e, f, 'void')} style={{
-                        fontSize: '11px', padding: '2px 8px', border: '1px solid #fee2e2',
-                        borderRadius: '4px', cursor: 'pointer', backgroundColor: '#fff', color: '#ef4444'
-                      }}>Void</button>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
+        </Tabs>
       </div>
 
       {showModal && (

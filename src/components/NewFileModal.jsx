@@ -1,6 +1,13 @@
 import { useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 
 const ALLOWED_TYPES = [
   'application/pdf', 'image/jpeg', 'image/png', 'image/webp',
@@ -13,7 +20,7 @@ const ALLOWED_EXT = '.pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx'
 const fileIcon = (type) => {
   const t = type?.toUpperCase()
   if (t === 'PDF') return '📄'
-  if (['JPG','JPEG','PNG','WEBP'].includes(t)) return '🖼️'
+  if (['JPG', 'JPEG', 'PNG', 'WEBP'].includes(t)) return '🖼️'
   if (t === 'DOCX') return '📝'
   if (t === 'XLSX') return '📊'
   return '📁'
@@ -58,8 +65,8 @@ export default function NewFileModal({ messageId = null, onClose, onCreated }) {
     for (const file of files) {
       const ext = file.name.split('.').pop()
       const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-      const { error: uploadError } = await supabase.storage.from('files').upload(path, file)
-      if (uploadError) {
+      const { error: uploadErr } = await supabase.storage.from('files').upload(path, file)
+      if (uploadErr) {
         failed.push(file.name)
         done++
         setProgress(Math.round((done / files.length) * 100))
@@ -91,101 +98,91 @@ export default function NewFileModal({ messageId = null, onClose, onCreated }) {
   }
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100
-    }} onClick={onClose}>
-      <div style={{
-        backgroundColor: '#fff', borderRadius: '10px', width: '500px', maxWidth: '95vw',
-        padding: '24px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)'
-      }} onClick={e => e.stopPropagation()}>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent className="w-[500px] max-w-[95vw]">
+        <DialogHeader>
+          <DialogTitle className="text-base font-bold">Upload Files</DialogTitle>
+        </DialogHeader>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h2 style={{ margin: 0, fontSize: '16px', fontWeight: '700' }}>Upload Files</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: '#9ca3af' }}>✕</button>
-        </div>
-
-        {/* Drop zone */}
-        <div
-          ref={dropRef}
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          style={{
-            border: `2px dashed ${dragging ? '#111' : '#d1d5db'}`,
-            borderRadius: '8px', padding: '32px 16px', textAlign: 'center',
-            backgroundColor: dragging ? '#f9fafb' : '#fff',
-            transition: 'all 0.15s', marginBottom: '16px', cursor: 'pointer'
-          }}
-          onClick={() => document.getElementById('file-input-modal').click()}
-        >
-          <div style={{ fontSize: '28px', marginBottom: '8px' }}>📂</div>
-          <p style={{ margin: 0, fontSize: '13px', color: '#6b7280' }}>
-            Drag & drop files here, or <span style={{ color: '#111', fontWeight: '600' }}>click to browse</span>
-          </p>
-          <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#9ca3af' }}>
-            PDF, images, Word, Excel
-          </p>
-          <input id="file-input-modal" type="file" multiple style={{ display: 'none' }}
-            accept={ALLOWED_EXT} onChange={e => addFiles(e.target.files)} />
-        </div>
-
-        {/* File list */}
-        {files.length > 0 && (
-          <div style={{ marginBottom: '20px', maxHeight: '200px', overflowY: 'auto' }}>
-            {files.map((f, i) => {
-              const ext = f.name.split('.').pop().toUpperCase()
-              return (
-                <div key={i} style={{
-                  display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px',
-                  backgroundColor: '#f9fafb', borderRadius: '6px', marginBottom: '4px',
-                  border: '1px solid #f3f4f6'
-                }}>
-                  <span style={{ fontSize: '16px', flexShrink: 0 }}>{fileIcon(ext)}</span>
-                  <span style={{ flex: 1, fontSize: '13px', color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
-                  <span style={{ fontSize: '11px', color: '#9ca3af', flexShrink: 0 }}>{(f.size / 1024).toFixed(0)} KB</span>
-                  <button onClick={() => removeFile(i)} style={{
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    color: '#9ca3af', fontSize: '14px', padding: '0 2px', flexShrink: 0
-                  }}>✕</button>
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        {/* Progress */}
-        {uploading && (
-          <div style={{ marginBottom: '16px' }}>
-            <div style={{ height: '4px', backgroundColor: '#f3f4f6', borderRadius: '2px', overflow: 'hidden' }}>
-              <div style={{ height: '100%', backgroundColor: '#111', width: `${progress}%`, transition: 'width 0.2s' }} />
-            </div>
-            <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '6px', textAlign: 'center' }}>
-              Uploading... {progress}%
+        <div className="space-y-4 pt-1">
+          {/* Drop zone */}
+          <div
+            ref={dropRef}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onClick={() => document.getElementById('file-input-modal').click()}
+            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+              dragging ? 'border-gray-900 bg-gray-50' : 'border-gray-300 bg-white hover:bg-gray-50'
+            }`}
+          >
+            <div className="text-3xl mb-2">📂</div>
+            <p className="text-sm text-gray-500">
+              Drag &amp; drop files here, or{' '}
+              <span className="text-gray-900 font-semibold">click to browse</span>
             </p>
+            <p className="text-xs text-gray-400 mt-1">PDF, images, Word, Excel</p>
+            <input
+              id="file-input-modal"
+              type="file"
+              multiple
+              className="hidden"
+              accept={ALLOWED_EXT}
+              onChange={e => addFiles(e.target.files)}
+            />
           </div>
-        )}
 
-        {uploadError && (
-          <p style={{ fontSize: '12px', color: '#ef4444', marginBottom: '12px' }}>{uploadError}</p>
-        )}
+          {/* File list */}
+          {files.length > 0 && (
+            <div className="space-y-1 max-h-48 overflow-y-auto">
+              {files.map((f, i) => {
+                const ext = f.name.split('.').pop().toUpperCase()
+                return (
+                  <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 bg-gray-50 rounded-md border border-gray-100">
+                    <span className="text-base shrink-0">{fileIcon(ext)}</span>
+                    <span className="flex-1 text-sm text-gray-900 truncate">{f.name}</span>
+                    <span className="text-xs text-gray-400 shrink-0">{(f.size / 1024).toFixed(0)} KB</span>
+                    <button
+                      onClick={() => removeFile(i)}
+                      className="text-gray-400 hover:text-gray-600 text-sm leading-none shrink-0 cursor-pointer bg-transparent border-none"
+                    >✕</button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-          <button onClick={onClose} disabled={uploading} style={{
-            padding: '8px 16px', backgroundColor: '#fff', border: '1px solid #d1d5db',
-            borderRadius: '6px', fontSize: '13px', cursor: 'pointer', color: '#374151',
-            opacity: uploading ? 0.5 : 1
-          }}>Cancel</button>
-          <button onClick={handleUpload} disabled={uploading || files.length === 0} style={{
-            padding: '8px 20px', backgroundColor: '#111', color: '#fff',
-            border: 'none', borderRadius: '6px', fontSize: '13px',
-            cursor: uploading || files.length === 0 ? 'not-allowed' : 'pointer',
-            opacity: uploading || files.length === 0 ? 0.5 : 1
-          }}>
-            {uploading ? `Uploading ${progress}%` : `Upload ${files.length > 0 ? `(${files.length})` : ''}`}
-          </button>
+          {/* Progress bar */}
+          {uploading && (
+            <div className="space-y-1.5">
+              <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gray-900 transition-[width] duration-200"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <p className="text-xs text-gray-500 text-center">Uploading... {progress}%</p>
+            </div>
+          )}
+
+          {uploadError && (
+            <p className="text-xs text-red-500">{uploadError}</p>
+          )}
+
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="outline" onClick={onClose} disabled={uploading} className="text-sm">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpload}
+              disabled={uploading || files.length === 0}
+              className="text-sm bg-gray-900 hover:bg-gray-800 text-white"
+            >
+              {uploading ? `Uploading ${progress}%` : `Upload${files.length > 0 ? ` (${files.length})` : ''}`}
+            </Button>
+          </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

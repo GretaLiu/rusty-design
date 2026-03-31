@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import FileIcon from '../components/FileIcon'
 
 export default function MessageDetail() {
   const { id } = useParams()
@@ -35,8 +36,7 @@ export default function MessageDetail() {
       .from('messages')
       .select(`id, title, archived, created_at,
         created_by_user:users!messages_created_by_fkey(display_name, avatar_url)`)
-      .eq('id', id)
-      .single()
+      .eq('id', id).single()
     setMessage(msg)
 
     const { data: r } = await supabase
@@ -165,7 +165,6 @@ export default function MessageDetail() {
     fetchAll()
   }
 
-
   // ── File ───────────────────────────────────────────────────────────────────
 
   const handleUpload = async (e) => {
@@ -218,7 +217,7 @@ export default function MessageDetail() {
     fetchAll()
   }
 
-  // ── Archive / Unarchive ────────────────────────────────────────────────────
+  // ── Archive ────────────────────────────────────────────────────────────────
 
   const canArchive = todos.every(t => t.completed) && files.every(f => f.status !== 'active')
 
@@ -251,109 +250,127 @@ export default function MessageDetail() {
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
-  const fileIcon = (type) => {
-    const t = type?.toUpperCase()
-    if (t === 'PDF') return '📄'
-    if (['JPG', 'JPEG', 'PNG', 'WEBP'].includes(t)) return '🖼️'
-    if (t === 'DOCX') return '📝'
-    if (t === 'XLSX') return '📊'
-    return '📁'
-  }
-
   const formatDate = (d) => new Date(d).toLocaleDateString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric'
   })
 
+  const formatTime = (d) => new Date(d).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric'
+  }) + ' ' + new Date(d).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+
   if (!message) return null
 
+  const openCount = todos.filter(t => !t.completed).length
+  const activeFiles = files.filter(f => f.status === 'active').length
+
   return (
-    <div style={{ maxWidth: '760px', margin: '0 auto', padding: '24px' }}>
+    <div className="max-w-[720px] mx-auto px-6 py-6">
 
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '8px' }}>
-        <button onClick={() => navigate(-1)} style={{
-          background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color: '#6b7280', padding: 0
-        }}>← Back</button>
+      {/* ── Header bar ── */}
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
+        <button
+          onClick={() => navigate(-1)}
+          className="text-sm text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer p-0 transition-colors"
+        >
+          ← Back
+        </button>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          {/* Archive / Unarchive */}
+        <div className="flex items-center gap-2 flex-wrap">
           {message.archived ? (
-            <button onClick={handleUnarchive} style={{
-              fontSize: '12px', padding: '3px 10px', backgroundColor: '#fff', color: '#374151',
-              border: '1px solid #d1d5db', borderRadius: '5px', cursor: 'pointer'
-            }}>Reactivate</button>
-          ) : (
-            archiveConfirm ? (
-              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                <span style={{ fontSize: '12px', color: '#6b7280' }}>Archive this message?</span>
-                <button onClick={handleArchive} style={{
-                  fontSize: '12px', padding: '3px 10px', backgroundColor: '#111', color: '#fff',
-                  border: 'none', borderRadius: '5px', cursor: 'pointer'
-                }}>Yes</button>
-                <button onClick={() => setArchiveConfirm(false)} style={{
-                  fontSize: '12px', padding: '3px 10px', backgroundColor: '#fff', color: '#374151',
-                  border: '1px solid #d1d5db', borderRadius: '5px', cursor: 'pointer'
-                }}>Cancel</button>
-              </div>
-            ) : (
+            <button
+              onClick={handleUnarchive}
+              className="text-xs px-3 py-1.5 bg-white text-gray-600 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50 transition-colors"
+            >
+              Reactivate
+            </button>
+          ) : archiveConfirm ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500">Archive this ticket?</span>
               <button
-                onClick={() => canArchive && setArchiveConfirm(true)}
-                title={!canArchive ? 'All todos must be complete and no active files before archiving' : ''}
-                style={{
-                  fontSize: '12px', padding: '3px 10px', backgroundColor: '#fff',
-                  color: canArchive ? '#374151' : '#d1d5db',
-                  border: `1px solid ${canArchive ? '#d1d5db' : '#e5e7eb'}`,
-                  borderRadius: '5px', cursor: canArchive ? 'pointer' : 'not-allowed'
-                }}>Archive</button>
-            )
+                onClick={handleArchive}
+                className="text-xs px-3 py-1.5 bg-gray-900 text-white border-none rounded-md cursor-pointer hover:bg-gray-700 transition-colors"
+              >
+                Yes, archive
+              </button>
+              <button
+                onClick={() => setArchiveConfirm(false)}
+                className="text-xs px-3 py-1.5 bg-white text-gray-600 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => canArchive && setArchiveConfirm(true)}
+              title={!canArchive ? 'All todos must be complete and no active files before archiving' : ''}
+              className={`text-xs px-3 py-1.5 bg-white border rounded-md transition-colors ${
+                canArchive
+                  ? 'text-gray-600 border-gray-300 cursor-pointer hover:bg-gray-50'
+                  : 'text-gray-300 border-gray-200 cursor-not-allowed'
+              }`}
+            >
+              Archive
+            </button>
           )}
-
         </div>
       </div>
 
-      {/* Title */}
-      <div style={{ marginBottom: '28px', textAlign: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '4px' }}>
+      {/* ── Title block ── */}
+      <div className="text-center mb-8">
+        <div className="flex items-center justify-center gap-2 mb-1">
           {message.archived && (
-            <span style={{ fontSize: '11px', color: '#9ca3af', border: '1px solid #e5e7eb', borderRadius: '4px', padding: '1px 6px' }}>
+            <span className="text-[11px] text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">
               Archived
             </span>
           )}
-          <h1 style={{ fontSize: '22px', fontWeight: '700', margin: 0 }}>{message.title}</h1>
+          <h1 className="text-xl font-bold text-gray-900 m-0">{message.title}</h1>
         </div>
-        <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>
-          {message.created_by_user?.display_name} · {formatDate(message.created_at)}
-        </p>
+        <div className="flex items-center justify-center gap-2 text-xs text-gray-400">
+          <img
+            src={message.created_by_user?.avatar_url} alt=""
+            className="w-4 h-4 rounded-full object-cover"
+          />
+          <span>{message.created_by_user?.display_name}</span>
+          <span>·</span>
+          <span>{formatDate(message.created_at)}</span>
+          {openCount > 0 && (
+            <>
+              <span>·</span>
+              <span className="text-amber-500">{openCount} open todo{openCount > 1 ? 's' : ''}</span>
+            </>
+          )}
+          {activeFiles > 0 && (
+            <>
+              <span>·</span>
+              <span className="text-blue-500">{activeFiles} active file{activeFiles > 1 ? 's' : ''}</span>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Replies */}
-      <section style={{ marginBottom: '32px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '16px' }}>
+      {/* ── Replies ── */}
+      <section className="mb-8">
+        <div className="flex flex-col gap-4 mb-4">
           {replies.map(reply => (
-            <div key={reply.id} style={{ display: 'flex', gap: '10px' }}>
-              <img src={reply.created_by_user?.avatar_url} alt=""
-                style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '13px', fontWeight: '600', color: '#111' }}>
+            <div key={reply.id} className="flex gap-3">
+              <img
+                src={reply.created_by_user?.avatar_url} alt=""
+                className="w-8 h-8 rounded-full object-cover shrink-0 mt-0.5"
+              />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline gap-2 mb-1.5">
+                  <span className="text-sm font-semibold text-gray-900">
                     {reply.created_by_user?.display_name}
                   </span>
-                  <span style={{ fontSize: '11px', color: '#9ca3af' }}>
-                    {new Date(reply.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    {' '}{new Date(reply.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                  </span>
+                  <span className="text-xs text-gray-400">{formatTime(reply.created_at)}</span>
                 </div>
-                <div style={{
-                  fontSize: '13px', color: '#374151', lineHeight: '1.6',
-                  backgroundColor: '#f9fafb', padding: '10px 12px', borderRadius: '6px',
-                  textAlign: 'left'
-                }}>
+                <div className="text-sm text-gray-700 leading-relaxed bg-gray-50 px-3 py-2.5 rounded-lg text-left">
                   {reply.body.split(/(@[\w\s]+?)(?=\s|$|@)/).map((part, i) => {
                     const mentioned = reply.reply_mentions?.some(m =>
                       part.trim() === `@${m.mentioned_user?.display_name}`
                     )
                     return mentioned
-                      ? <span key={i} style={{ color: '#2563eb', fontWeight: '500' }}>{part}</span>
+                      ? <span key={i} className="text-blue-600 font-medium">{part}</span>
                       : <span key={i}>{part}</span>
                   })}
                 </div>
@@ -362,228 +379,250 @@ export default function MessageDetail() {
           ))}
         </div>
 
-        {/* Reply input */}
+        {/* Reply composer */}
         {!message.archived && (
-          <div style={{ position: 'relative' }}>
-            <textarea ref={textareaRef} value={replyBody} onChange={handleReplyChange}
-              placeholder="Reply... (type @ to mention someone)"
+          <div className="relative">
+            <textarea
+              ref={textareaRef}
+              value={replyBody}
+              onChange={handleReplyChange}
+              placeholder="Reply… (type @ to mention someone)"
               rows={3}
-              style={{
-                width: '100%', padding: '10px 12px', border: '1px solid #d1d5db',
-                borderRadius: '8px', fontSize: '13px', resize: 'vertical',
-                boxSizing: 'border-box', lineHeight: '1.5'
-              }} />
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm resize-y leading-relaxed focus:outline-none focus:ring-2 focus:ring-gray-200 box-border"
+            />
             {mentioning && filteredUsers.length > 0 && (
-              <div style={{
-                position: 'absolute', bottom: '100%', left: 0,
-                backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '6px',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.1)', overflow: 'hidden', zIndex: 10
-              }}>
+              <div className="absolute bottom-full left-0 bg-white border border-gray-200 rounded-lg shadow-md overflow-hidden z-10">
                 {filteredUsers.map(u => (
-                  <div key={u.id} onMouseDown={() => insertMention(u)}
-                    style={{ padding: '8px 14px', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}
-                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f3f4f6'}
-                    onMouseLeave={e => e.currentTarget.style.backgroundColor = '#fff'}>
-                    <img src={u.avatar_url} alt="" style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }} />
+                  <div
+                    key={u.id}
+                    onMouseDown={() => insertMention(u)}
+                    className="flex items-center gap-2 px-3.5 py-2 text-sm cursor-pointer hover:bg-gray-50"
+                  >
+                    <img src={u.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover" />
                     {u.display_name}
                   </div>
                 ))}
               </div>
             )}
-            <button onClick={handlePostReply} disabled={!replyBody.trim()} style={{
-              marginTop: '8px', padding: '7px 16px', backgroundColor: '#111', color: '#fff',
-              border: 'none', borderRadius: '6px', fontSize: '13px',
-              cursor: replyBody.trim() ? 'pointer' : 'not-allowed',
-              opacity: replyBody.trim() ? 1 : 0.5
-            }}>Post Reply</button>
+            <button
+              onClick={handlePostReply}
+              disabled={!replyBody.trim()}
+              className={`mt-2 px-4 py-1.5 text-sm bg-gray-900 text-white border-none rounded-md transition-opacity cursor-pointer hover:bg-gray-700 ${
+                !replyBody.trim() ? 'opacity-40 cursor-not-allowed' : ''
+              }`}
+            >
+              Post Reply
+            </button>
           </div>
         )}
       </section>
 
-      {/* Todos */}
-      <section style={{ marginBottom: '32px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-          <h2 style={{ fontSize: '14px', fontWeight: '600', margin: 0 }}>Todos</h2>
+      {/* ── Todos ── */}
+      <section className="mb-8">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-gray-900 m-0">
+            Todos
+            {todos.length > 0 && (
+              <span className="ml-2 text-xs font-normal text-gray-400">
+                {todos.filter(t => t.completed).length}/{todos.length} done
+              </span>
+            )}
+          </h2>
           {!message.archived && (
-            <button onClick={() => setShowTodoForm(v => !v)} style={{
-              fontSize: '12px', padding: '3px 10px', backgroundColor: '#111', color: '#fff',
-              border: 'none', borderRadius: '5px', cursor: 'pointer'
-            }}>{showTodoForm ? 'Cancel' : '+ Add'}</button>
+            <button
+              onClick={() => setShowTodoForm(v => !v)}
+              className="text-xs px-2.5 py-1 bg-gray-900 text-white border-none rounded-md cursor-pointer hover:bg-gray-700 transition-colors"
+            >
+              {showTodoForm ? 'Cancel' : '+ Add'}
+            </button>
           )}
         </div>
 
         {showTodoForm && (
-          <div style={{
-            padding: '12px', border: '1px solid #e5e7eb', borderRadius: '8px',
-            marginBottom: '12px', backgroundColor: '#f9fafb'
-          }}>
-            <input placeholder="Todo text" value={todoText} onChange={e => setTodoText(e.target.value)}
-              style={{
-                width: '100%', padding: '7px 10px', border: '1px solid #d1d5db',
-                borderRadius: '6px', fontSize: '13px', marginBottom: '8px', boxSizing: 'border-box'
-              }} />
-            <select value={todoAssignee} onChange={e => setTodoAssignee(e.target.value)}
-              style={{
-                width: '100%', padding: '7px 10px', border: '1px solid #d1d5db',
-                borderRadius: '6px', fontSize: '13px', marginBottom: '8px', boxSizing: 'border-box',
-                color: todoAssignee ? '#111' : '#9ca3af'
-              }}>
+          <div className="p-3 border border-gray-200 rounded-lg mb-3 bg-gray-50 space-y-2">
+            <input
+              placeholder="Todo text"
+              value={todoText}
+              onChange={e => setTodoText(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAddTodo()}
+              className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 box-border"
+            />
+            <select
+              value={todoAssignee}
+              onChange={e => setTodoAssignee(e.target.value)}
+              className={`w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 box-border ${todoAssignee ? 'text-gray-900' : 'text-gray-400'}`}
+            >
               <option value="">Assign to...</option>
               {users.map(u => <option key={u.id} value={u.id}>{u.display_name}</option>)}
             </select>
-            <button onClick={handleAddTodo} disabled={!todoText.trim() || !todoAssignee} style={{
-              padding: '6px 14px', backgroundColor: '#111', color: '#fff',
-              border: 'none', borderRadius: '6px', fontSize: '13px',
-              cursor: !todoText.trim() || !todoAssignee ? 'not-allowed' : 'pointer',
-              opacity: !todoText.trim() || !todoAssignee ? 0.5 : 1
-            }}>Add Todo</button>
+            <button
+              onClick={handleAddTodo}
+              disabled={!todoText.trim() || !todoAssignee}
+              className={`px-3 py-1.5 text-sm bg-gray-900 text-white border-none rounded-md cursor-pointer transition-opacity hover:bg-gray-700 ${
+                !todoText.trim() || !todoAssignee ? 'opacity-40 cursor-not-allowed' : ''
+              }`}
+            >
+              Add Todo
+            </button>
           </div>
         )}
 
-        {todos.length === 0 && <p style={{ fontSize: '13px', color: '#9ca3af' }}>No todos</p>}
-        {todos.map(todo => (
-          <div key={todo.id}
-            onClick={() => navigate(`/home/todos/${todo.id}`)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '10px',
-              padding: '10px 12px', borderRadius: '6px', cursor: 'pointer',
-              marginBottom: '4px', border: '1px solid #f3f4f6', backgroundColor: '#fff'
-            }}
-            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f9fafb'}
-            onMouseLeave={e => e.currentTarget.style.backgroundColor = '#fff'}
-          >
-            <button onClick={e => { e.stopPropagation(); toggleTodo(todo) }} style={{
-              width: '16px', height: '16px', borderRadius: '50%', flexShrink: 0,
-              border: `2px solid ${todo.completed ? '#10b981' : '#d1d5db'}`,
-              backgroundColor: todo.completed ? '#10b981' : 'transparent',
-              cursor: 'pointer', padding: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}>
-              {todo.completed && <span style={{ color: '#fff', fontSize: '9px' }}>✓</span>}
-            </button>
-            <span style={{
-              fontSize: '13px', flex: 1,
-              color: todo.completed ? '#9ca3af' : '#111',
-              textDecoration: todo.completed ? 'line-through' : 'none'
-            }}>{todo.text}</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-              <img src={todo.assigned_user?.avatar_url} alt=""
-                style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }} />
-              <span style={{ fontSize: '11px', color: '#9ca3af' }}>{todo.assigned_user?.display_name}</span>
+        {todos.length === 0 && (
+          <p className="text-sm text-gray-400">No todos</p>
+        )}
+        <div className="space-y-1">
+          {todos.map(todo => (
+            <div
+              key={todo.id}
+              onClick={() => navigate(`/home/todos/${todo.id}`)}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer border border-gray-100 bg-white hover:bg-gray-50 transition-colors"
+            >
+              <button
+                onClick={e => { e.stopPropagation(); toggleTodo(todo) }}
+                className={`w-4 h-4 rounded-full shrink-0 border-2 flex items-center justify-center p-0 cursor-pointer transition-colors ${
+                  todo.completed
+                    ? 'border-emerald-500 bg-emerald-500'
+                    : 'border-gray-300 bg-transparent hover:border-emerald-400'
+                }`}
+              >
+                {todo.completed && <span className="text-white text-[9px]">✓</span>}
+              </button>
+              <span className={`flex-1 text-sm ${todo.completed ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
+                {todo.text}
+              </span>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <img
+                  src={todo.assigned_user?.avatar_url} alt=""
+                  className="w-5 h-5 rounded-full object-cover"
+                />
+                <span className="text-xs text-gray-400">{todo.assigned_user?.display_name}</span>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </section>
 
-      {/* Files */}
-      <section>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-          <h2 style={{ fontSize: '14px', fontWeight: '600', margin: 0 }}>Files</h2>
+      {/* ── Files ── */}
+      <section className="mb-8">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-gray-900 m-0">Files</h2>
           {!message.archived && (
-            <label style={{
-              fontSize: '12px', padding: '3px 10px', backgroundColor: '#111', color: '#fff',
-              borderRadius: '5px', cursor: uploading ? 'not-allowed' : 'pointer',
-              opacity: uploading ? 0.6 : 1
-            }}>
-              {uploading ? 'Uploading...' : '+ Upload'}
-              <input type="file" multiple style={{ display: 'none' }} onChange={handleUpload} disabled={uploading}
-                accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx" />
+            <label className={`text-xs px-2.5 py-1 bg-gray-900 text-white rounded-md transition-opacity ${uploading ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-700'}`}>
+              {uploading ? 'Uploading…' : '+ Upload'}
+              <input
+                type="file" multiple className="hidden"
+                onChange={handleUpload} disabled={uploading}
+                accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx"
+              />
             </label>
           )}
         </div>
 
-        {files.length === 0 && <p style={{ fontSize: '13px', color: '#9ca3af' }}>No files</p>}
-        {files.map(f => (
-          <div key={f.id} style={{
-            display: 'flex', alignItems: 'center', gap: '10px',
-            padding: '10px 12px', borderRadius: '6px', marginBottom: '4px',
-            border: '1px solid #f3f4f6', opacity: f.status === 'void' ? 0.4 : 1,
-            backgroundColor: '#fff'
-          }}>
-            <span style={{ fontSize: '18px', flexShrink: 0 }}>{fileIcon(f.file_type)}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                {f.pinned && <span style={{ fontSize: '10px' }}>📌</span>}
-                {f.status === 'void'
-                  ? <span style={{ fontSize: '13px', color: '#9ca3af', textDecoration: 'line-through' }}>{f.filename}</span>
-                  : <a href={f.file_url} target="_blank" rel="noreferrer"
-                      onClick={e => e.stopPropagation()}
-                      style={{ fontSize: '13px', color: '#2563eb', textDecoration: 'none' }}>{f.filename}</a>
-                }
+        {files.length === 0 && <p className="text-sm text-gray-400">No files</p>}
+        <div className="space-y-1">
+          {files.map(f => (
+            <div
+              key={f.id}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-100 bg-white ${f.status === 'void' ? 'opacity-40' : ''}`}
+            >
+              <FileIcon type={f.file_type} size="sm" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  {f.pinned && <span className="text-[10px]">📌</span>}
+                  {f.status === 'void'
+                    ? <span className="text-sm text-gray-400 line-through">{f.filename}</span>
+                    : (
+                      <a
+                        href={f.file_url} target="_blank" rel="noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="text-sm text-blue-600 hover:underline no-underline"
+                      >
+                        {f.filename}
+                      </a>
+                    )
+                  }
+                  {f.status === 'complete' && (
+                    <span className="text-[10px] text-emerald-600 font-medium">✓</span>
+                  )}
+                </div>
+                <span className="text-xs text-gray-400">
+                  {f.created_by_user?.display_name} · {formatDate(f.created_at)}
+                </span>
               </div>
-              <span style={{ fontSize: '11px', color: '#9ca3af' }}>
-                {f.status === 'complete' ? '✓ Complete · ' : ''}
-                {f.created_by_user?.display_name} · {formatDate(f.created_at)}
-              </span>
+              {!message.archived && f.status !== 'void' && (
+                <div className="flex gap-1.5 shrink-0">
+                  <button
+                    onClick={() => togglePin(f)}
+                    className="text-xs px-2 py-1 border border-gray-200 rounded cursor-pointer bg-white text-gray-500 hover:bg-gray-50 transition-colors"
+                  >
+                    {f.pinned ? 'Unpin' : 'Pin'}
+                  </button>
+                  {f.status === 'active' && (
+                    <button
+                      onClick={() => updateFileStatus(f, 'complete')}
+                      className="text-xs px-2 py-1 border border-gray-200 rounded cursor-pointer bg-white text-gray-500 hover:bg-gray-50 transition-colors"
+                    >
+                      Complete
+                    </button>
+                  )}
+                  <button
+                    onClick={() => updateFileStatus(f, 'void')}
+                    className="text-xs px-2 py-1 border border-red-200 rounded cursor-pointer bg-white text-red-400 hover:bg-red-50 transition-colors"
+                  >
+                    Void
+                  </button>
+                </div>
+              )}
             </div>
-            {!message.archived && f.status !== 'void' && (
-              <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-                <button onClick={() => togglePin(f)} style={{
-                  fontSize: '11px', padding: '2px 8px', border: '1px solid #e5e7eb',
-                  borderRadius: '4px', cursor: 'pointer', backgroundColor: '#fff', color: '#6b7280'
-                }}>{f.pinned ? 'Unpin' : 'Pin'}</button>
-                {f.status === 'active' && (
-                  <button onClick={() => updateFileStatus(f, 'complete')} style={{
-                    fontSize: '11px', padding: '2px 8px', border: '1px solid #e5e7eb',
-                    borderRadius: '4px', cursor: 'pointer', backgroundColor: '#fff', color: '#6b7280'
-                  }}>Complete</button>
-                )}
-                <button onClick={() => updateFileStatus(f, 'void')} style={{
-                  fontSize: '11px', padding: '2px 8px', border: '1px solid #fee2e2',
-                  borderRadius: '4px', cursor: 'pointer', backgroundColor: '#fff', color: '#ef4444'
-                }}>Void</button>
-              </div>
-            )}
-          </div>
-        ))}
+          ))}
+        </div>
       </section>
 
-      {/* Danger zone */}
-      <div style={{
-        marginTop: '48px', borderTop: '1px solid #fee2e2', paddingTop: '24px'
-      }}>
-        <h3 style={{ fontSize: '13px', fontWeight: '600', color: '#ef4444', margin: '0 0 6px' }}>Danger Zone</h3>
-        <p style={{ fontSize: '12px', color: '#9ca3af', margin: '0 0 16px' }}>
-          Permanently delete this message and all its replies, todos, and files. This cannot be undone.
+      {/* ── Danger zone ── */}
+      <div className="mt-12 border-t border-red-100 pt-6">
+        <h3 className="text-xs font-semibold text-red-500 mb-1 mt-0">Danger Zone</h3>
+        <p className="text-xs text-gray-400 mb-4">
+          Permanently delete this ticket and all its replies, todos, and files. This cannot be undone.
         </p>
         {!showDelete ? (
-          <button onClick={() => setShowDelete(true)} style={{
-            fontSize: '12px', padding: '6px 14px', backgroundColor: '#fff', color: '#ef4444',
-            border: '1px solid #fca5a5', borderRadius: '6px', cursor: 'pointer'
-          }}>Delete this message</button>
+          <button
+            onClick={() => setShowDelete(true)}
+            className="text-xs px-3.5 py-1.5 bg-white text-red-400 border border-red-200 rounded-md cursor-pointer hover:bg-red-50 transition-colors"
+          >
+            Delete this ticket
+          </button>
         ) : (
-          <div style={{
-            border: '1px solid #fca5a5', borderRadius: '8px', padding: '16px', backgroundColor: '#fff5f5'
-          }}>
-            <p style={{ fontSize: '12px', color: '#374151', margin: '0 0 10px' }}>
-              Type <strong style={{ fontFamily: 'monospace' }}>{message.title}</strong> to confirm deletion:
+          <div className="border border-red-200 rounded-lg p-4 bg-red-50">
+            <p className="text-xs text-gray-600 mb-2.5">
+              Type <code className="font-mono bg-white px-1 py-0.5 rounded border border-red-100">{message.title}</code> to confirm:
             </p>
             <input
               value={deleteConfirmText}
               onChange={e => setDeleteConfirmText(e.target.value)}
               placeholder={message.title}
-              style={{
-                padding: '6px 10px', border: '1px solid #fca5a5', borderRadius: '6px',
-                fontSize: '13px', width: '100%', boxSizing: 'border-box', marginBottom: '10px',
-                backgroundColor: '#fff'
-              }} />
-            <div style={{ display: 'flex', gap: '8px' }}>
+              className="w-full px-2.5 py-1.5 border border-red-200 rounded-md text-sm mb-2.5 bg-white focus:outline-none box-border"
+            />
+            <div className="flex gap-2">
               <button
                 onClick={handleDelete}
                 disabled={deleting || deleteConfirmText !== message.title}
-                style={{
-                  fontSize: '12px', padding: '6px 14px', backgroundColor: '#ef4444', color: '#fff',
-                  border: 'none', borderRadius: '6px', cursor: 'pointer',
-                  opacity: deleting || deleteConfirmText !== message.title ? 0.4 : 1
-                }}>{deleting ? 'Deleting...' : 'I understand, delete permanently'}</button>
-              <button onClick={() => { setShowDelete(false); setDeleteConfirmText('') }} style={{
-                fontSize: '12px', padding: '6px 14px', backgroundColor: '#fff', color: '#374151',
-                border: '1px solid #d1d5db', borderRadius: '6px', cursor: 'pointer'
-              }}>Cancel</button>
+                className={`text-xs px-3.5 py-1.5 bg-red-500 text-white border-none rounded-md cursor-pointer hover:bg-red-600 transition-colors ${
+                  deleting || deleteConfirmText !== message.title ? 'opacity-40 cursor-not-allowed' : ''
+                }`}
+              >
+                {deleting ? 'Deleting…' : 'I understand, delete permanently'}
+              </button>
+              <button
+                onClick={() => { setShowDelete(false); setDeleteConfirmText('') }}
+                className="text-xs px-3.5 py-1.5 bg-white text-gray-600 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         )}
       </div>
+
     </div>
   )
 }

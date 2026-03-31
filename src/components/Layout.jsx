@@ -11,38 +11,48 @@ export default function Layout() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <nav style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 24px', height: '52px', borderBottom: '1px solid #e5e7eb',
-        backgroundColor: '#fff'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-          <span style={{ fontWeight: '700', fontSize: '16px' }}>Rusty Design</span>
-          <NavLink to="/home" style={({ isActive }) => ({
-            fontSize: '14px', textDecoration: 'none',
-            color: isActive ? '#111' : '#6b7280', fontWeight: isActive ? '600' : '400'
-          })}>Home</NavLink>
-          <NavLink to="/inventory" style={({ isActive }) => ({
-            fontSize: '14px', textDecoration: 'none',
-            color: isActive ? '#111' : '#6b7280', fontWeight: isActive ? '600' : '400'
-          })}>Inventory</NavLink>
-          <NavLink to="/notes" style={({ isActive }) => ({
-            fontSize: '14px', textDecoration: 'none',
-            color: isActive ? '#111' : '#6b7280', fontWeight: isActive ? '600' : '400'
-          })}>Notes</NavLink>
+    <div className="min-h-screen flex flex-col">
+      <nav className="flex items-center justify-between px-6 h-13 border-b border-gray-200 bg-white sticky top-0 z-10">
+        <div className="flex items-center gap-6">
+          <span className="font-bold text-base text-gray-900 tracking-tight">Rusty Design</span>
+          <div className="flex items-center gap-1">
+            {[
+              { to: '/home', label: 'Home' },
+              { to: '/inventory', label: 'Inventory' },
+              { to: '/notes', label: 'Notes' },
+            ].map(({ to, label }) => (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) =>
+                  `text-sm px-3 py-1.5 rounded-md transition-colors no-underline ${
+                    isActive
+                      ? 'text-gray-900 font-semibold bg-gray-100'
+                      : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50 font-normal'
+                  }`
+                }
+              >
+                {label}
+              </NavLink>
+            ))}
+          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <img src={user?.avatar_url} alt={user?.display_name}
-          style={{ width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover' }} />
-          <span style={{ fontSize: '14px', color: '#374151' }}>{user?.display_name}</span>
-          <button onClick={handleLogout} style={{
-            fontSize: '13px', color: '#6b7280', background: 'none',
-            border: 'none', cursor: 'pointer', padding: '4px 8px'
-          }}>Logout</button>
+        <div className="flex items-center gap-2.5">
+          <img
+            src={user?.avatar_url}
+            alt={user?.display_name}
+            className="w-7 h-7 rounded-full object-cover"
+          />
+          <span className="text-sm text-gray-700 font-medium">{user?.display_name}</span>
+          <button
+            onClick={handleLogout}
+            className="text-xs text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer px-2 py-1 transition-colors"
+          >
+            Logout
+          </button>
         </div>
       </nav>
-      <main style={{ flex: 1, backgroundColor: '#f9fafb' }}>
+      <main className="flex-1 bg-gray-50">
         <Outlet />
       </main>
     </div>

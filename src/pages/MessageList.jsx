@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 
 export default function MessageList() {
   const [messages, setMessages] = useState([])
@@ -46,88 +47,74 @@ export default function MessageList() {
     return firstPara.length > 120 ? firstPara.slice(0, 120) + '…' : firstPara
   }
 
-  const tabs = ['active', 'archived', 'all']
-
-  return (
-    <div style={{ padding: '24px', maxWidth: '720px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-        <button onClick={() => navigate('/home')} style={{
-          background: 'none', border: 'none', cursor: 'pointer',
-          fontSize: '13px', color: '#6b7280', padding: 0
-        }}>← Back</button>
-        <h1 style={{ fontSize: '18px', fontWeight: '700', margin: 0 }}>Tickets</h1>
-        <div style={{ width: '40px' }} />
-      </div>
-
-      <div style={{
-        display: 'flex', gap: '4px', marginBottom: '16px',
-        backgroundColor: '#f3f4f6', borderRadius: '8px', padding: '4px'
-      }}>
-        {tabs.map(t => (
-          <button key={t} onClick={() => setTab(t)} style={{
-            flex: 1, padding: '6px', border: 'none', borderRadius: '6px', cursor: 'pointer',
-            fontSize: '13px', fontWeight: tab === t ? '600' : '400',
-            backgroundColor: tab === t ? '#fff' : 'transparent',
-            color: tab === t ? '#111' : '#6b7280',
-            boxShadow: tab === t ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-            textTransform: 'capitalize'
-          }}>
-            {t}
-          </button>
-        ))}
-      </div>
-
-      <div style={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
-        {messages.length === 0 && (
-          <p style={{ padding: '24px', fontSize: '13px', color: '#9ca3af', textAlign: 'center' }}>
-            No messages
+  const MessageRow = ({ msg }) => (
+    <div
+      onClick={() => navigate(`/home/messages/${msg.id}`)}
+      className={`flex items-start gap-3 px-4 py-3.5 border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors last:border-b-0 ${msg.archived ? 'opacity-50' : ''}`}
+    >
+      <img
+        src={msg.created_by_user?.avatar_url} alt=""
+        className="w-8 h-8 rounded-full object-cover shrink-0 mt-0.5"
+      />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {hasUnread(msg) && (
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+          )}
+          <span className="text-sm font-medium text-gray-900 truncate">{msg.title}</span>
+          {msg.archived && (
+            <span className="text-[11px] text-gray-400 border border-gray-200 rounded px-1.5 py-0.5 shrink-0">
+              archived
+            </span>
+          )}
+          <span className="text-xs text-gray-300 ml-0.5">
+            {msg.replies?.length || 0} {msg.replies?.length === 1 ? 'reply' : 'replies'}
+            {openTodos(msg) > 0 && (
+              <span className="text-amber-400"> · {openTodos(msg)} todo{openTodos(msg) > 1 ? 's' : ''}</span>
+            )}
+            {' · '}{new Date(msg.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          </span>
+        </div>
+        {firstReplyPreview(msg) && (
+          <p className="mt-0.5 text-xs text-gray-500 leading-relaxed line-clamp-2 text-left">
+            {firstReplyPreview(msg)}
           </p>
         )}
-        {messages.map(msg => (
-          <div key={msg.id}
-            onClick={() => navigate(`/home/messages/${msg.id}`)}
-            style={{
-              padding: '14px 16px', borderBottom: '1px solid #f3f4f6',
-              cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: '10px',
-              opacity: msg.archived ? 0.5 : 1
-            }}
-            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f9fafb'}
-            onMouseLeave={e => e.currentTarget.style.backgroundColor = '#fff'}
-          >
-            <img src={msg.created_by_user?.avatar_url} alt=""
-              style={{ width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, marginTop: '1px' }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                {hasUnread(msg) && (
-                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#ef4444', flexShrink: 0 }} />
-                )}
-                <span style={{
-                  fontSize: '14px', fontWeight: '500', color: '#111',
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                }}>{msg.title}</span>
-                {msg.archived && (
-                  <span style={{
-                    fontSize: '11px', color: '#9ca3af', border: '1px solid #e5e7eb',
-                    borderRadius: '4px', padding: '1px 6px', flexShrink: 0
-                  }}>archived</span>
-                )}
-                <span style={{ fontSize: '11px', color: '#c4c9d4', marginLeft: '2px' }}>
-                  {msg.replies?.length || 0} {msg.replies?.length === 1 ? 'reply' : 'replies'}
-                  {openTodos(msg) > 0 && <span style={{ color: '#f59e0b' }}> · {openTodos(msg)} todo{openTodos(msg) > 1 ? 's' : ''}</span>}
-                  {' · '}{new Date(msg.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                </span>
-              </div>
-              {firstReplyPreview(msg) && (
-                <p style={{
-                  margin: '3px 0 0', fontSize: '12px', color: '#6b7280',
-                  lineHeight: '1.5', overflow: 'hidden', display: '-webkit-box',
-                  WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', textAlign: 'left'
-                }}>{firstReplyPreview(msg)}</p>
-              )}
-            </div>
-          </div>
-        ))}
       </div>
+    </div>
+  )
+
+  return (
+    <div className="px-6 py-6 max-w-[720px] mx-auto">
+      <div className="flex items-center justify-between mb-5">
+        <button
+          onClick={() => navigate('/home')}
+          className="text-sm text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer p-0 transition-colors"
+        >
+          ← Back
+        </button>
+        <h1 className="text-lg font-bold text-gray-900 m-0">Tickets</h1>
+        <div className="w-10" />
+      </div>
+
+      <Tabs value={tab} onValueChange={setTab} className="w-full">
+        <TabsList className="w-full mb-4">
+          <TabsTrigger value="active" className="flex-1">Active</TabsTrigger>
+          <TabsTrigger value="archived" className="flex-1">Archived</TabsTrigger>
+          <TabsTrigger value="all" className="flex-1">All</TabsTrigger>
+        </TabsList>
+
+        {['active', 'archived', 'all'].map(t => (
+          <TabsContent key={t} value={t}>
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              {messages.length === 0
+                ? <p className="py-8 text-center text-sm text-gray-400">No messages</p>
+                : messages.map(msg => <MessageRow key={msg.id} msg={msg} />)
+              }
+            </div>
+          </TabsContent>
+        ))}
+      </Tabs>
     </div>
   )
 }

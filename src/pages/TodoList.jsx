@@ -3,14 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import NewTodoModal from '../components/NewTodoModal'
-
-const tabStyle = (active) => ({
-  flex: 1, padding: '6px', border: 'none', borderRadius: '6px', cursor: 'pointer',
-  fontSize: '13px', fontWeight: active ? '600' : '400',
-  backgroundColor: active ? '#fff' : 'transparent',
-  color: active ? '#111' : '#6b7280',
-  boxShadow: active ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
-})
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 
 export default function TodoList() {
   const [tab, setTab] = useState('active')
@@ -86,149 +79,138 @@ export default function TodoList() {
     hour: 'numeric', minute: '2-digit'
   })
 
+  const actionLabel = (action) => ({
+    created: 'created a todo',
+    completed: 'completed a todo',
+    reopened: 'reopened a todo',
+    edited: 'edited a todo',
+    deleted: 'deleted a todo',
+  }[action] || action)
+
   const TodoRow = ({ todo }) => (
-    <div onClick={() => navigate(`/home/todos/${todo.id}`)}
-      style={{
-        display: 'flex', alignItems: 'center', gap: '10px',
-        padding: '10px 14px', borderBottom: '1px solid #f3f4f6',
-        cursor: 'pointer', backgroundColor: '#fff'
-      }}
-      onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f9fafb'}
-      onMouseLeave={e => e.currentTarget.style.backgroundColor = '#fff'}
+    <div
+      onClick={() => navigate(`/home/todos/${todo.id}`)}
+      className="flex items-center gap-3 px-3.5 py-2.5 border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors last:border-b-0"
     >
-      <button onClick={e => toggleComplete(e, todo)} style={{
-        width: '16px', height: '16px', borderRadius: '50%', flexShrink: 0,
-        border: `2px solid ${todo.completed ? '#10b981' : '#d1d5db'}`,
-        backgroundColor: todo.completed ? '#10b981' : 'transparent',
-        cursor: 'pointer', padding: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center'
-      }}>
-        {todo.completed && <span style={{ color: '#fff', fontSize: '9px' }}>✓</span>}
+      <button
+        onClick={e => toggleComplete(e, todo)}
+        className={`w-4 h-4 rounded-full shrink-0 border-2 flex items-center justify-center p-0 cursor-pointer transition-colors ${
+          todo.completed
+            ? 'border-emerald-500 bg-emerald-500'
+            : 'border-gray-300 bg-transparent hover:border-emerald-400'
+        }`}
+      >
+        {todo.completed && <span className="text-white text-[9px] leading-none">✓</span>}
       </button>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <span style={{
-          fontSize: '13px', display: 'block',
-          color: todo.completed ? '#9ca3af' : '#111',
-          textDecoration: todo.completed ? 'line-through' : 'none',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-        }}>{todo.text}</span>
+      <div className="flex-1 min-w-0">
+        <span className={`text-sm block truncate ${todo.completed ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+          {todo.text}
+        </span>
         {todo.message?.title && (
-          <span style={{ fontSize: '11px', color: '#9ca3af' }}>↳ {todo.message.title}</span>
+          <span className="text-xs text-gray-400">↳ {todo.message.title}</span>
         )}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-        <img src={todo.assigned_user?.avatar_url} alt=""
-          style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }} />
-        <span style={{ fontSize: '11px', color: '#9ca3af' }}>{todo.assigned_user?.display_name}</span>
+      <div className="flex items-center gap-1.5 shrink-0">
+        <img
+          src={todo.assigned_user?.avatar_url} alt=""
+          className="w-5 h-5 rounded-full object-cover"
+        />
+        <span className="text-xs text-gray-400">{todo.assigned_user?.display_name}</span>
       </div>
     </div>
   )
 
-  const Column = ({ title, todos }) => (
-    <div style={{ flex: 1, minWidth: 0 }}>
-      <div style={{
-        padding: '10px 14px', borderBottom: '1px solid #e5e7eb',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-      }}>
-        <span style={{ fontSize: '13px', fontWeight: '600', color: '#111' }}>{title}</span>
-        <span style={{ fontSize: '11px', color: '#9ca3af' }}>{todos.length}</span>
+  const Column = ({ title, todos: colTodos }) => (
+    <div className="flex-1 min-w-0">
+      <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-gray-100">
+        <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">{title}</span>
+        <span className="text-xs text-gray-400 tabular-nums">{colTodos.length}</span>
       </div>
-      {todos.length === 0
-        ? <p style={{ padding: '24px 14px', fontSize: '13px', color: '#9ca3af', textAlign: 'center' }}>
+      {colTodos.length === 0
+        ? <p className="py-8 text-center text-sm text-gray-400">
             {tab === 'active' ? 'No open todos' : 'No completed todos'}
           </p>
-        : todos.map(t => <TodoRow key={t.id} todo={t} />)
+        : colTodos.map(t => <TodoRow key={t.id} todo={t} />)
       }
     </div>
   )
 
-  const actionLabel = (action) => {
-    const map = {
-      created: 'created a todo',
-      completed: 'completed a todo',
-      reopened: 'reopened a todo',
-      edited: 'edited a todo',
-      deleted: 'deleted a todo'
-    }
-    return map[action] || action
-  }
-
   return (
     <>
-      <div style={{ padding: '24px', maxWidth: '1000px', margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button onClick={() => navigate('/home')} style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              fontSize: '13px', color: '#6b7280', padding: 0
-            }}>← Back</button>
-            <h1 style={{ fontSize: '18px', fontWeight: '700', margin: 0 }}>Todos</h1>
-          </div>
-          <button onClick={() => setShowModal(true)} style={{
-            fontSize: '12px', padding: '4px 12px', backgroundColor: '#111', color: '#fff',
-            border: 'none', borderRadius: '5px', cursor: 'pointer'
-          }}>+ New Todo</button>
-        </div>
-
-        {/* Tabs */}
-        <div style={{
-          display: 'flex', gap: '4px', marginBottom: '16px',
-          backgroundColor: '#f3f4f6', borderRadius: '8px', padding: '4px'
-        }}>
-          {['active', 'completed', 'log'].map(t => (
-            <button key={t} onClick={() => setTab(t)} style={tabStyle(tab === t)}>
-              {t.charAt(0).toUpperCase() + t.slice(1)}
+      <div className="px-6 py-6 max-w-[1000px] mx-auto">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/home')}
+              className="text-sm text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer p-0 transition-colors"
+            >
+              ← Back
             </button>
-          ))}
+            <h1 className="text-lg font-bold text-gray-900 m-0">Todos</h1>
+          </div>
+          <button
+            onClick={() => setShowModal(true)}
+            className="text-xs px-3 py-1.5 bg-gray-900 text-white border-none rounded-md cursor-pointer hover:bg-gray-700 transition-colors"
+          >
+            + New Todo
+          </button>
         </div>
 
-        {/* Active / Completed: two columns */}
-        {(tab === 'active' || tab === 'completed') && (
-          <div style={{
-            backgroundColor: '#fff', border: '1px solid #e5e7eb',
-            borderRadius: '8px', overflow: 'hidden', display: 'flex'
-          }}>
-            <Column title="Assigned to Me" todos={myTodos} />
-            <div style={{ width: '1px', backgroundColor: '#e5e7eb', flexShrink: 0 }} />
-            <Column title="Others" todos={otherTodos} />
-          </div>
-        )}
+        <Tabs value={tab} onValueChange={setTab} className="w-full">
+          <TabsList className="w-full mb-4">
+            <TabsTrigger value="active" className="flex-1">Active</TabsTrigger>
+            <TabsTrigger value="completed" className="flex-1">Completed</TabsTrigger>
+            <TabsTrigger value="log" className="flex-1">Log</TabsTrigger>
+          </TabsList>
 
-        {/* Log tab */}
-        {tab === 'log' && (
-          <div style={{
-            backgroundColor: '#fff', border: '1px solid #e5e7eb',
-            borderRadius: '8px', overflow: 'hidden'
-          }}>
-            {log.length === 0 && (
-              <p style={{ padding: '24px', fontSize: '13px', color: '#9ca3af', textAlign: 'center' }}>
-                No activity yet
-              </p>
-            )}
-            {log.map(entry => (
-              <div key={entry.id} style={{
-                display: 'flex', alignItems: 'center', gap: '10px',
-                padding: '10px 16px', borderBottom: '1px solid #f3f4f6', fontSize: '13px'
-              }}>
-                <img src={entry.performed_by_user?.avatar_url} alt=""
-                  style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                <span style={{ color: '#374151' }}>
-                  <span style={{ fontWeight: '500' }}>{entry.performed_by_user?.display_name}</span>
-                  {' '}{actionLabel(entry.action)}
-                </span>
-                <button
-                  onClick={() => navigate(`/home/todos/${entry.entity_id}`)}
-                  style={{
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    fontSize: '11px', color: '#2563eb', padding: 0, flexShrink: 0
-                  }}>view →</button>
-                <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto', flexShrink: 0 }}>
-                  {formatDate(entry.created_at)}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+          <TabsContent value="active">
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden flex">
+              <Column title="Assigned to Me" todos={myTodos} />
+              <div className="w-px bg-gray-100 shrink-0" />
+              <Column title="Others" todos={otherTodos} />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="completed">
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden flex">
+              <Column title="Assigned to Me" todos={myTodos} />
+              <div className="w-px bg-gray-100 shrink-0" />
+              <Column title="Others" todos={otherTodos} />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="log">
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              {log.length === 0 && (
+                <p className="py-8 text-center text-sm text-gray-400">No activity yet</p>
+              )}
+              {log.map(entry => (
+                <div
+                  key={entry.id}
+                  className="flex items-center gap-2.5 px-4 py-2.5 border-b border-gray-50 last:border-b-0"
+                >
+                  <img
+                    src={entry.performed_by_user?.avatar_url} alt=""
+                    className="w-6 h-6 rounded-full object-cover shrink-0"
+                  />
+                  <span className="text-sm text-gray-600 flex-1">
+                    <span className="font-medium text-gray-900">{entry.performed_by_user?.display_name}</span>
+                    {' '}{actionLabel(entry.action)}
+                  </span>
+                  <button
+                    onClick={() => navigate(`/home/todos/${entry.entity_id}`)}
+                    className="text-xs text-blue-500 hover:text-blue-700 bg-transparent border-none cursor-pointer p-0 shrink-0 transition-colors"
+                  >
+                    view →
+                  </button>
+                  <span className="text-xs text-gray-400 shrink-0 tabular-nums">
+                    {formatDate(entry.created_at)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {showModal && (

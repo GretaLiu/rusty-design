@@ -2,6 +2,14 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Pencil, X, Check, ChevronLeft, ChevronRight, Search } from 'lucide-react'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow
+} from '@/components/ui/table'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 
 const PAGE_SIZE = 100
 
@@ -113,30 +121,30 @@ function HistoryPanel({ tableName, externalSearch = '' }) {
       </div>
 
       {snapshot.length === 0 ? (
-        <div style={{ padding: '20px', textAlign: 'center', color: '#9ca3af', fontSize: '12px' }}>No data for this date</div>
+        <div className="py-5 text-center text-xs text-gray-400">No data for this date</div>
       ) : filtered.length === 0 ? (
-        <div style={{ padding: '20px', textAlign: 'center', color: '#9ca3af', fontSize: '12px' }}>No results for "{externalSearch}"</div>
+        <div className="py-5 text-center text-xs text-gray-400">No results for &ldquo;{externalSearch}&rdquo;</div>
       ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-          <thead>
-            <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-              <th style={{ textAlign: 'left', padding: '6px 12px', color: '#9ca3af', fontWeight: '600', fontSize: '10px' }}>SKU</th>
-              <th style={{ textAlign: 'right', padding: '6px 12px', color: '#9ca3af', fontWeight: '600', fontSize: '10px' }}>QTY</th>
-              <th style={{ textAlign: 'left', padding: '6px 12px', color: '#9ca3af', fontWeight: '600', fontSize: '10px' }}>LOCATION</th>
-              <th style={{ textAlign: 'left', padding: '6px 12px', color: '#9ca3af', fontWeight: '600', fontSize: '10px' }}>NOTES</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-gray-50">
+              <TableHead className="text-[10px] font-semibold text-gray-400 uppercase">SKU</TableHead>
+              <TableHead className="text-[10px] font-semibold text-gray-400 uppercase text-right">QTY</TableHead>
+              <TableHead className="text-[10px] font-semibold text-gray-400 uppercase">LOCATION</TableHead>
+              <TableHead className="text-[10px] font-semibold text-gray-400 uppercase">NOTES</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {filtered.map((row, i) => (
-              <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                <td style={{ padding: '6px 12px', fontWeight: '500', color: '#111' }}>{row.product_sku}</td>
-                <td style={{ padding: '6px 12px', textAlign: 'right', fontWeight: '700', color: '#111' }}>{row.quantity}</td>
-                <td style={{ padding: '6px 12px', color: '#6b7280' }}>{row.location || '—'}</td>
-                <td style={{ padding: '6px 12px', color: '#6b7280' }}>{row.notes || '—'}</td>
-              </tr>
+              <TableRow key={i}>
+                <TableCell className="py-1.5 px-3 text-xs font-medium text-gray-900">{row.product_sku}</TableCell>
+                <TableCell className="py-1.5 px-3 text-xs font-bold text-gray-900 text-right">{row.quantity}</TableCell>
+                <TableCell className="py-1.5 px-3 text-xs text-gray-500">{row.location || '—'}</TableCell>
+                <TableCell className="py-1.5 px-3 text-xs text-gray-500">{row.notes || '—'}</TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
     </div>
   )
@@ -309,69 +317,69 @@ function ReadyTable() {
 
       {/* current inventory table */}
       {!showHistory && (
-        <div style={{ backgroundColor: '#fff', border: `1px solid ${isEditing ? '#a3e635' : '#e5e7eb'}`, borderRadius: '8px', overflow: 'hidden', marginBottom: '8px', transition: 'border-color 0.15s' }}>
+        <div className={`bg-white rounded-lg overflow-hidden mb-2 border transition-colors ${isEditing ? 'border-lime-300' : 'border-gray-200'}`}>
           {isEditing && (
-            <div style={{ padding: '6px 12px', backgroundColor: '#f0fdf4', borderBottom: '1px solid #bbf7d0', fontSize: '11px', color: '#16a34a', fontWeight: '500' }}>
+            <div className="px-3 py-1.5 bg-green-50 border-b border-green-200 text-xs text-green-700 font-medium">
               Editing page {page + 1} — Save or Cancel before switching pages
             </div>
           )}
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                <th style={{ textAlign: 'left', padding: '6px 12px', color: '#9ca3af', fontWeight: '600', fontSize: '10px' }}>SKU</th>
-                <th style={{ textAlign: 'right', padding: '6px 12px', color: '#9ca3af', fontWeight: '600', fontSize: '10px' }}>QTY</th>
-                <th style={{ textAlign: 'left', padding: '6px 12px', color: '#9ca3af', fontWeight: '600', fontSize: '10px' }}>LOCATION</th>
-                <th style={{ textAlign: 'left', padding: '6px 12px', color: '#9ca3af', fontWeight: '600', fontSize: '10px' }}>NOTES</th>
-                <th style={{ textAlign: 'left', padding: '6px 12px', color: '#9ca3af', fontWeight: '600', fontSize: '10px' }}>UPDATED</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-gray-50">
+                <TableHead className="text-[10px] font-semibold text-gray-400 uppercase">SKU</TableHead>
+                <TableHead className="text-[10px] font-semibold text-gray-400 uppercase text-right">QTY</TableHead>
+                <TableHead className="text-[10px] font-semibold text-gray-400 uppercase">LOCATION</TableHead>
+                <TableHead className="text-[10px] font-semibold text-gray-400 uppercase">NOTES</TableHead>
+                <TableHead className="text-[10px] font-semibold text-gray-400 uppercase">UPDATED</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {pageRows.length === 0 && (
-                <tr>
-                  <td colSpan={5} style={{ padding: '20px', textAlign: 'center', color: '#9ca3af', fontSize: '12px' }}>
+                <TableRow>
+                  <TableCell colSpan={5} className="py-5 text-center text-xs text-gray-400">
                     {search ? `No results for "${search}"` : 'No items'}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
               {pageRows.map(row => {
                 const draft = editDraft[row.id]
                 return (
-                  <tr key={row.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                    <td style={{ padding: isEditing ? '4px 12px' : '7px 12px', fontWeight: '500', color: '#111' }}>{row.product_sku}</td>
-                    <td style={{ padding: isEditing ? '4px 6px' : '7px 12px', textAlign: 'right' }}>
+                  <TableRow key={row.id}>
+                    <TableCell className={`${isEditing ? 'py-1 px-3' : 'py-1.5 px-3'} font-medium text-gray-900 text-xs`}>{row.product_sku}</TableCell>
+                    <TableCell className={`${isEditing ? 'py-1 px-1.5' : 'py-1.5 px-3'} text-right text-xs`}>
                       {isEditing ? (
                         <input type="number" value={draft?.quantity ?? row.quantity}
                           onChange={e => setDraftField(row.id, 'quantity', e.target.value)}
                           style={{ ...inputStyle, textAlign: 'right', width: '70px' }} />
                       ) : (
-                        <span style={{ fontWeight: '700', color: '#111' }}>{row.quantity}</span>
+                        <span className="font-bold text-gray-900">{row.quantity}</span>
                       )}
-                    </td>
-                    <td style={{ padding: isEditing ? '4px 6px' : '7px 12px' }}>
+                    </TableCell>
+                    <TableCell className={`${isEditing ? 'py-1 px-1.5' : 'py-1.5 px-3'} text-xs`}>
                       {isEditing ? (
                         <input value={draft?.location ?? (row.location || '')}
                           onChange={e => setDraftField(row.id, 'location', e.target.value)}
                           style={inputStyle} />
                       ) : (
-                        <span style={{ color: '#6b7280' }}>{row.location || '—'}</span>
+                        <span className="text-gray-500">{row.location || '—'}</span>
                       )}
-                    </td>
-                    <td style={{ padding: isEditing ? '4px 6px' : '7px 12px', maxWidth: '200px' }}>
+                    </TableCell>
+                    <TableCell className={`${isEditing ? 'py-1 px-1.5' : 'py-1.5 px-3'} text-xs max-w-[200px]`}>
                       {isEditing ? (
                         <input value={draft?.notes ?? (row.notes || '')}
                           onChange={e => setDraftField(row.id, 'notes', e.target.value)}
                           style={inputStyle} />
                       ) : (
-                        <span style={{ color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{row.notes || '—'}</span>
+                        <span className="text-gray-500 truncate block">{row.notes || '—'}</span>
                       )}
-                    </td>
-                    <td style={{ padding: '7px 12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    </TableCell>
+                    <TableCell className="py-1.5 px-3 text-xs">
+                      <div className="flex items-center gap-1">
                         {row.last_updated_by_user && (
                           <img src={row.last_updated_by_user.avatar_url} alt=""
-                            style={{ width: '14px', height: '14px', borderRadius: '50%', objectFit: 'cover' }} />
+                            className="w-3.5 h-3.5 rounded-full object-cover" />
                         )}
-                        <span style={{ fontSize: '10px', color: '#9ca3af' }}>
+                        <span className="text-[10px] text-gray-400">
                           {row.last_updated_at
                             ? isToday(row.last_updated_at)
                               ? 'Today'
@@ -379,12 +387,12 @@ function ReadyTable() {
                             : '—'}
                         </span>
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 )
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
 
@@ -419,33 +427,28 @@ function ReadyTable() {
       )}
       {!showHistory && totalPages <= 1 && <div style={{ marginBottom: '28px' }} />}
 
-      {/* unsaved changes warning modal */}
-      {unsavedWarning && (
-        <div style={{
-          position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200
-        }} onClick={() => setUnsavedWarning(false)}>
-          <div style={{
-            backgroundColor: '#fff', borderRadius: '10px', padding: '24px', width: '340px',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.2)'
-          }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ margin: '0 0 8px', fontSize: '15px', fontWeight: '700' }}>Unsaved Changes</h3>
-            <p style={{ margin: '0 0 16px', fontSize: '13px', color: '#6b7280' }}>
-              You have unsaved edits on this page. Save your changes or discard them before navigating to another page.
-            </p>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              <button onClick={() => setUnsavedWarning(false)} style={{
-                padding: '7px 14px', border: '1px solid #d1d5db', borderRadius: '6px',
-                fontSize: '13px', cursor: 'pointer', backgroundColor: '#fff', color: '#374151'
-              }}>Keep Editing</button>
-              <button onClick={confirmDiscardAndChangePage} style={{
-                padding: '7px 14px', backgroundColor: '#ef4444', color: '#fff',
-                border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer'
-              }}>Discard &amp; Continue</button>
-            </div>
+      {/* unsaved changes warning dialog */}
+      <Dialog open={unsavedWarning} onOpenChange={(open) => { if (!open) setUnsavedWarning(false) }}>
+        <DialogContent className="w-[340px] max-w-[95vw]">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold">Unsaved Changes</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-gray-500 mt-1">
+            You have unsaved edits on this page. Save your changes or discard them before navigating to another page.
+          </p>
+          <div className="flex justify-end gap-2 mt-2">
+            <Button variant="outline" onClick={() => setUnsavedWarning(false)} className="text-sm">
+              Keep Editing
+            </Button>
+            <Button
+              onClick={confirmDiscardAndChangePage}
+              className="text-sm bg-red-500 hover:bg-red-600 text-white"
+            >
+              Discard &amp; Continue
+            </Button>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
@@ -607,121 +610,109 @@ function FlexTable({ tableName }) {
         </div>
       )}
 
-      {!showHistory && <div style={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', marginBottom: '28px' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-          <thead>
-            <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-              <th style={{ textAlign: 'left', padding: '6px 12px', color: '#9ca3af', fontWeight: '600', fontSize: '10px' }}>SKU</th>
-              <th style={{ textAlign: 'right', padding: '6px 12px', color: '#9ca3af', fontWeight: '600', fontSize: '10px' }}>QTY</th>
-              <th style={{ textAlign: 'left', padding: '6px 12px', color: '#9ca3af', fontWeight: '600', fontSize: '10px' }}>LOCATION</th>
-              <th style={{ textAlign: 'left', padding: '6px 12px', color: '#9ca3af', fontWeight: '600', fontSize: '10px' }}>NOTES</th>
-              <th style={{ textAlign: 'left', padding: '6px 12px', color: '#9ca3af', fontWeight: '600', fontSize: '10px' }}>UPDATED</th>
-              <th style={{ padding: '6px 8px' }} />
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={6} style={{ padding: '20px', textAlign: 'center', color: '#9ca3af', fontSize: '12px' }}>
-                  {search ? `No results for "${search}"` : 'No items'}
-                </td>
-              </tr>
-            )}
-            {filtered.map(row => (
-              <tr key={row.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                {editingId === row.id ? (
-                  <>
-                    <td style={{ padding: '4px 6px' }}>
-                      <input value={editValues.product_sku}
-                        onChange={e => setEditValues(p => ({ ...p, product_sku: e.target.value }))}
-                        style={inputStyle} />
-                    </td>
-                    <td style={{ padding: '4px 6px' }}>
-                      <input type="number" value={editValues.quantity}
-                        onChange={e => setEditValues(p => ({ ...p, quantity: e.target.value }))}
-                        style={{ ...inputStyle, textAlign: 'right' }} />
-                    </td>
-                    <td style={{ padding: '4px 6px' }}>
-                      <input value={editValues.location}
-                        onChange={e => setEditValues(p => ({ ...p, location: e.target.value }))}
-                        style={inputStyle} />
-                    </td>
-                    <td style={{ padding: '4px 6px' }}>
-                      <input value={editValues.notes}
-                        onChange={e => setEditValues(p => ({ ...p, notes: e.target.value }))}
-                        style={inputStyle} />
-                    </td>
-                    <td />
-                    <td style={{ padding: '4px 6px' }}>
-                      <div style={{ display: 'flex', gap: '4px' }}>
-                        <button onClick={saveEdit} style={{
-                          display: 'flex', alignItems: 'center', padding: '3px 8px',
-                          backgroundColor: '#111', color: '#fff', border: 'none',
-                          borderRadius: '4px', cursor: 'pointer'
-                        }}><Check size={12} /></button>
-                        <button onClick={() => setEditingId(null)} style={{
-                          display: 'flex', alignItems: 'center', padding: '3px 8px',
-                          backgroundColor: '#fff', color: '#374151', border: '1px solid #d1d5db',
-                          borderRadius: '4px', cursor: 'pointer'
-                        }}><X size={12} /></button>
-                      </div>
-                    </td>
-                  </>
-                ) : (
-                  <>
-                    <td style={{ padding: '7px 12px', fontWeight: '500', color: '#111' }}>{row.product_sku}</td>
-                    <td style={{ padding: '7px 12px', textAlign: 'right', fontWeight: '700', color: '#111' }}>{row.quantity}</td>
-                    <td style={{ padding: '7px 12px', color: '#6b7280' }}>{row.location || '—'}</td>
-                    <td style={{ padding: '7px 12px', color: '#6b7280', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.notes || '—'}</td>
-                    <td style={{ padding: '7px 12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        {row.last_updated_by_user && (
-                          <img src={row.last_updated_by_user.avatar_url} alt=""
-                            style={{ width: '14px', height: '14px', borderRadius: '50%', objectFit: 'cover' }} />
-                        )}
-                        <span style={{ fontSize: '10px', color: '#9ca3af' }}>
-                          {row.last_updated_at
-                            ? isToday(row.last_updated_at)
-                              ? 'Today'
-                              : new Date(row.last_updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                            : '—'}
-                        </span>
-                      </div>
-                    </td>
-                    <td style={{ padding: '7px 8px' }}>
-                      <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                        <button onClick={() => startEdit(row)} title="Edit"
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', padding: '2px', display: 'flex', alignItems: 'center' }}
-                          onMouseEnter={e => e.currentTarget.style.color = '#111'}
-                          onMouseLeave={e => e.currentTarget.style.color = '#d1d5db'}>
-                          <Pencil size={12} />
-                        </button>
-                        <button onClick={() => handleDelete(row.id)} title="Delete"
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', padding: '2px', display: 'flex', alignItems: 'center' }}
-                          onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
-                          onMouseLeave={e => e.currentTarget.style.color = '#d1d5db'}>
-                          <X size={12} />
-                        </button>
-                      </div>
-                    </td>
-                  </>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>}
+      {!showHistory && (
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden mb-7">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-gray-50">
+                <TableHead className="text-[10px] font-semibold text-gray-400 uppercase">SKU</TableHead>
+                <TableHead className="text-[10px] font-semibold text-gray-400 uppercase text-right">QTY</TableHead>
+                <TableHead className="text-[10px] font-semibold text-gray-400 uppercase">LOCATION</TableHead>
+                <TableHead className="text-[10px] font-semibold text-gray-400 uppercase">NOTES</TableHead>
+                <TableHead className="text-[10px] font-semibold text-gray-400 uppercase">UPDATED</TableHead>
+                <TableHead />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-5 text-center text-xs text-gray-400">
+                    {search ? `No results for "${search}"` : 'No items'}
+                  </TableCell>
+                </TableRow>
+              )}
+              {filtered.map(row => (
+                <TableRow key={row.id}>
+                  {editingId === row.id ? (
+                    <>
+                      <TableCell className="py-1 px-1.5 text-xs">
+                        <input value={editValues.product_sku}
+                          onChange={e => setEditValues(p => ({ ...p, product_sku: e.target.value }))}
+                          style={inputStyle} />
+                      </TableCell>
+                      <TableCell className="py-1 px-1.5 text-xs">
+                        <input type="number" value={editValues.quantity}
+                          onChange={e => setEditValues(p => ({ ...p, quantity: e.target.value }))}
+                          style={{ ...inputStyle, textAlign: 'right' }} />
+                      </TableCell>
+                      <TableCell className="py-1 px-1.5 text-xs">
+                        <input value={editValues.location}
+                          onChange={e => setEditValues(p => ({ ...p, location: e.target.value }))}
+                          style={inputStyle} />
+                      </TableCell>
+                      <TableCell className="py-1 px-1.5 text-xs">
+                        <input value={editValues.notes}
+                          onChange={e => setEditValues(p => ({ ...p, notes: e.target.value }))}
+                          style={inputStyle} />
+                      </TableCell>
+                      <TableCell />
+                      <TableCell className="py-1 px-1.5 text-xs">
+                        <div className="flex gap-1">
+                          <button onClick={saveEdit}
+                            className="flex items-center px-2 py-1 bg-gray-900 text-white rounded cursor-pointer border-none">
+                            <Check size={12} />
+                          </button>
+                          <button onClick={() => setEditingId(null)}
+                            className="flex items-center px-2 py-1 bg-white text-gray-700 border border-gray-300 rounded cursor-pointer">
+                            <X size={12} />
+                          </button>
+                        </div>
+                      </TableCell>
+                    </>
+                  ) : (
+                    <>
+                      <TableCell className="py-1.5 px-3 text-xs font-medium text-gray-900">{row.product_sku}</TableCell>
+                      <TableCell className="py-1.5 px-3 text-xs text-right font-bold text-gray-900">{row.quantity}</TableCell>
+                      <TableCell className="py-1.5 px-3 text-xs text-gray-500">{row.location || '—'}</TableCell>
+                      <TableCell className="py-1.5 px-3 text-xs text-gray-500 max-w-[200px] truncate">{row.notes || '—'}</TableCell>
+                      <TableCell className="py-1.5 px-3 text-xs">
+                        <div className="flex items-center gap-1">
+                          {row.last_updated_by_user && (
+                            <img src={row.last_updated_by_user.avatar_url} alt=""
+                              className="w-3.5 h-3.5 rounded-full object-cover" />
+                          )}
+                          <span className="text-[10px] text-gray-400">
+                            {row.last_updated_at
+                              ? isToday(row.last_updated_at)
+                                ? 'Today'
+                                : new Date(row.last_updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                              : '—'}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-1.5 px-2 text-xs">
+                        <div className="flex gap-1 justify-end items-center">
+                          <button onClick={() => startEdit(row)} title="Edit"
+                            className="p-0.5 text-gray-300 hover:text-gray-900 flex items-center bg-transparent border-none cursor-pointer">
+                            <Pencil size={12} />
+                          </button>
+                          <button onClick={() => handleDelete(row.id)} title="Delete"
+                            className="p-0.5 text-gray-300 hover:text-red-500 flex items-center bg-transparent border-none cursor-pointer">
+                            <X size={12} />
+                          </button>
+                        </div>
+                      </TableCell>
+                    </>
+                  )}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </>
   )
 }
-
-const tabStyle = (active) => ({
-  flex: 1, padding: '7px', border: 'none', borderRadius: '6px', cursor: 'pointer',
-  fontSize: '12px', fontWeight: active ? '600' : '400',
-  backgroundColor: active ? '#fff' : 'transparent',
-  color: active ? '#111' : '#6b7280',
-  boxShadow: active ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
-})
 
 export default function Inventory() {
   const [tab, setTab] = useState('ready')
@@ -730,25 +721,29 @@ export default function Inventory() {
     <div style={{ padding: '24px', maxWidth: '1000px', margin: '0 auto' }}>
       <h1 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '18px' }}>Inventory</h1>
 
-      <div style={{
-        display: 'flex', gap: '4px', marginBottom: '16px',
-        backgroundColor: '#f3f4f6', borderRadius: '8px', padding: '4px'
-      }}>
-        {Object.entries(tableConfig).map(([key, config]) => (
-          <button key={key} onClick={() => setTab(key)} style={tabStyle(tab === key)}>
-            <span style={{
-              display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%',
-              backgroundColor: config.color, marginRight: '5px'
-            }} />
-            {config.label}
-          </button>
-        ))}
-      </div>
+      <Tabs value={tab} onValueChange={setTab} className="w-full">
+        <TabsList className="w-full mb-4">
+          {Object.entries(tableConfig).map(([key, config]) => (
+            <TabsTrigger key={key} value={key} className="flex-1 gap-1.5">
+              <span
+                className="inline-block w-2 h-2 rounded-full shrink-0"
+                style={{ backgroundColor: config.color }}
+              />
+              {config.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
-      {tab === 'ready'
-        ? <ReadyTable key="ready" />
-        : <FlexTable key={tab} tableName={tab} />
-      }
+        <TabsContent value="ready">
+          <ReadyTable key="ready" />
+        </TabsContent>
+        <TabsContent value="pending">
+          <FlexTable key="pending" tableName="pending" />
+        </TabsContent>
+        <TabsContent value="clearance">
+          <FlexTable key="clearance" tableName="clearance" />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

@@ -5,36 +5,49 @@ import { useAuth } from '../context/AuthContext'
 import NewMessageModal from '../components/NewMessageModal'
 import NewTodoModal from '../components/NewTodoModal'
 import NewFileModal from '../components/NewFileModal'
+import FileIcon from '../components/FileIcon'
 
-const styles = {
-  wrap: { display: 'flex', gap: '24px', padding: '24px', alignItems: 'flex-start' },
-  card: {
-    flex: 1, backgroundColor: '#fff', border: '1px solid #e5e7eb',
-    borderRadius: '8px', overflow: 'hidden', minWidth: 0
-  },
-  header: {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    padding: '14px 16px', borderBottom: '1px solid #e5e7eb'
-  },
-  title: { fontSize: '14px', fontWeight: '600', color: '#111' },
-  newBtn: {
-    fontSize: '12px', color: '#fff', backgroundColor: '#111',
-    border: 'none', borderRadius: '5px', padding: '4px 10px', cursor: 'pointer'
-  },
-  viewAll: {
-    fontSize: '12px', color: '#6b7280', background: 'none',
-    border: 'none', padding: 0, cursor: 'pointer'
-  },
-  row: {
-    padding: '10px 16px', borderBottom: '1px solid #f3f4f6',
-    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px',
-    backgroundColor: '#fff', transition: 'background 0.1s'
-  },
-  empty: { padding: '24px 16px', fontSize: '13px', color: '#9ca3af', textAlign: 'center' }
+// ─── Shared card shell ────────────────────────────────────────────────────────
+
+function Card({ title, actions, children }) {
+  return (
+    <div className="flex-1 min-w-0 bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+        <span className="text-sm font-semibold text-gray-900">{title}</span>
+        <div className="flex items-center gap-2">{actions}</div>
+      </div>
+      <div className="flex-1">{children}</div>
+    </div>
+  )
 }
 
-const hoverOn = e => e.currentTarget.style.backgroundColor = '#f9fafb'
-const hoverOff = e => e.currentTarget.style.backgroundColor = '#fff'
+function CardNewBtn({ onClick, label = '+ New' }) {
+  return (
+    <button
+      onClick={onClick}
+      className="text-xs text-white bg-gray-900 hover:bg-gray-700 rounded-md px-2.5 py-1 cursor-pointer border-none transition-colors"
+    >
+      {label}
+    </button>
+  )
+}
+
+function CardViewAll({ onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="text-xs text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer transition-colors p-0"
+    >
+      View all →
+    </button>
+  )
+}
+
+function EmptyState({ text }) {
+  return (
+    <p className="py-8 text-center text-sm text-gray-400">{text}</p>
+  )
+}
 
 // ─── Tickets ──────────────────────────────────────────────────────────────────
 
@@ -69,46 +82,49 @@ function Tickets({ users }) {
 
   return (
     <>
-      <div style={styles.card}>
-        <div style={styles.header}>
-          <span style={styles.title}>Tickets</span>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <button style={styles.newBtn} onClick={() => setShowModal(true)}>+ New</button>
-            <button style={styles.viewAll} onClick={() => navigate('/home/messages')}>View all →</button>
-          </div>
-        </div>
-        <div>
-          {messages.length === 0 && <p style={styles.empty}>No active messages</p>}
-          {messages.map(msg => (
-            <div key={msg.id} style={styles.row}
+      <Card
+        title="Tickets"
+        actions={<>
+          <CardNewBtn onClick={() => setShowModal(true)} />
+          <CardViewAll onClick={() => navigate('/home/messages')} />
+        </>}
+      >
+        {messages.length === 0
+          ? <EmptyState text="No active messages" />
+          : messages.map(msg => (
+            <div
+              key={msg.id}
               onClick={() => navigate(`/home/messages/${msg.id}`)}
-              onMouseEnter={hoverOn} onMouseLeave={hoverOff}>
-              <img src={msg.created_by_user?.avatar_url} alt=""
-                style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors last:border-b-0"
+            >
+              <img
+                src={msg.created_by_user?.avatar_url} alt=""
+                className="w-7 h-7 rounded-full object-cover shrink-0"
+              />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
                   {hasUnread(msg) && (
-                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#ef4444', flexShrink: 0 }} />
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
                   )}
-                  <span style={{ fontSize: '13px', fontWeight: '500', color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <span className="text-sm font-medium text-gray-900 truncate">
                     {msg.title}
                   </span>
                 </div>
-                <div style={{ display: 'flex', gap: '10px', marginTop: '3px' }}>
-                  <span style={{ fontSize: '11px', color: '#9ca3af' }}>
+                <div className="flex gap-2.5 mt-0.5">
+                  <span className="text-xs text-gray-400">
                     {msg.replies?.length || 0} {msg.replies?.length === 1 ? 'reply' : 'replies'}
                   </span>
                   {openTodos(msg) > 0 && (
-                    <span style={{ fontSize: '11px', color: '#f59e0b' }}>
+                    <span className="text-xs text-amber-500">
                       {openTodos(msg)} open todo{openTodos(msg) > 1 ? 's' : ''}
                     </span>
                   )}
                 </div>
               </div>
             </div>
-          ))}
-        </div>
-      </div>
+          ))
+        }
+      </Card>
 
       {showModal && (
         <NewMessageModal
@@ -158,35 +174,36 @@ function TodoPanel({ users }) {
 
   return (
     <>
-      <div style={styles.card}>
-        <div style={styles.header}>
-          <span style={styles.title}>My Todos</span>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <button style={styles.newBtn} onClick={() => setShowModal(true)}>+ New</button>
-            <button style={styles.viewAll} onClick={() => navigate('/home/todos')}>View all →</button>
-          </div>
-        </div>
-        <div>
-          {todos.length === 0 && <p style={styles.empty}>No open todos</p>}
-          {todos.map(todo => (
-            <div key={todo.id} style={styles.row}
+      <Card
+        title="My Todos"
+        actions={<>
+          <CardNewBtn onClick={() => setShowModal(true)} />
+          <CardViewAll onClick={() => navigate('/home/todos')} />
+        </>}
+      >
+        {todos.length === 0
+          ? <EmptyState text="No open todos" />
+          : todos.map(todo => (
+            <div
+              key={todo.id}
               onClick={() => navigate(`/home/todos/${todo.id}`)}
-              onMouseEnter={hoverOn} onMouseLeave={hoverOff}>
-              <button onClick={e => toggleComplete(e, todo)} style={{
-                width: '16px', height: '16px', borderRadius: '50%', flexShrink: 0,
-                border: '2px solid #d1d5db', background: 'none', cursor: 'pointer', padding: 0
-              }} />
-              <span style={{ fontSize: '13px', color: '#111', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors last:border-b-0"
+            >
+              <button
+                onClick={e => toggleComplete(e, todo)}
+                className="w-4 h-4 rounded-full shrink-0 border-2 border-gray-300 hover:border-emerald-400 bg-transparent cursor-pointer p-0 transition-colors"
+              />
+              <span className="flex-1 min-w-0 text-sm text-gray-800 truncate">
                 {todo.text}
               </span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                <img src={todo.assigned_user?.avatar_url} alt=""
-                  style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover' }} />
-              </div>
+              <img
+                src={todo.assigned_user?.avatar_url} alt=""
+                className="w-5 h-5 rounded-full object-cover shrink-0"
+              />
             </div>
-          ))}
-        </div>
-      </div>
+          ))
+        }
+      </Card>
 
       {showModal && (
         <NewTodoModal
@@ -198,17 +215,6 @@ function TodoPanel({ users }) {
     </>
   )
 }
-
-const FILE_TYPE_META = {
-  PDF:  { icon: '📄', bg: '#fef2f2' },
-  JPG:  { icon: '🖼️', bg: '#f5f3ff' },
-  JPEG: { icon: '🖼️', bg: '#f5f3ff' },
-  PNG:  { icon: '🖼️', bg: '#f5f3ff' },
-  WEBP: { icon: '🖼️', bg: '#f5f3ff' },
-  DOCX: { icon: '📝', bg: '#eff6ff' },
-  XLSX: { icon: '📊', bg: '#f0fdf4' },
-}
-const fileMeta = (type) => FILE_TYPE_META[type?.toUpperCase()] || { icon: '📁', bg: '#f9fafb' }
 
 // ─── File Panel ───────────────────────────────────────────────────────────────
 
@@ -234,73 +240,43 @@ function FilePanel() {
 
   return (
     <>
-      <div style={styles.card}>
-        <div style={styles.header}>
-          <span style={styles.title}>Files</span>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <button style={styles.newBtn} onClick={() => setShowModal(true)}>+ Upload</button>
-            <button style={styles.viewAll} onClick={() => navigate('/home/files')}>View all →</button>
-          </div>
-        </div>
-
-        {files.length === 0 && <p style={styles.empty}>No files</p>}
-
-        {files.length > 0 && (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
-            gap: '8px',
-            padding: '12px',
-          }}>
-            {files.map(f => {
-              const meta = fileMeta(f.file_type)
-              return (
-                <div key={f.id}
-                  onClick={() => navigate(`/home/files/${f.id}`)}
-                  style={{
-                    position: 'relative',
-                    backgroundColor: '#fafafa', border: '1px solid #f0f0f0',
-                    borderRadius: '8px', padding: '10px 8px 8px',
-                    cursor: 'pointer', textAlign: 'center',
-                    transition: 'box-shadow 0.15s, border-color 0.15s',
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)'
-                    e.currentTarget.style.borderColor = '#d1d5db'
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.boxShadow = 'none'
-                    e.currentTarget.style.borderColor = '#f0f0f0'
-                  }}
-                >
-                  {f.pinned && (
-                    <span style={{
-                      position: 'absolute', top: '4px', right: '5px',
-                      fontSize: '9px', opacity: 0.6
-                    }}>📌</span>
-                  )}
-                  <div style={{
-                    width: '36px', height: '36px', borderRadius: '8px',
-                    backgroundColor: meta.bg, display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', margin: '0 auto 6px', fontSize: '18px',
-                  }}>
-                    {meta.icon}
+      <Card
+        title="Files"
+        actions={<>
+          <CardNewBtn onClick={() => setShowModal(true)} label="+ Upload" />
+          <CardViewAll onClick={() => navigate('/home/files')} />
+        </>}
+      >
+        {files.length === 0
+          ? <EmptyState text="No files" />
+          : (
+            <div className="grid grid-cols-4 gap-2 p-3">
+              {files.map(f => (
+                  <div
+                    key={f.id}
+                    onClick={() => navigate(`/home/files/${f.id}`)}
+                    className="relative bg-white border border-gray-100 rounded-xl px-2 pt-3 pb-2 cursor-pointer text-center hover:border-gray-300 hover:shadow-sm transition-all"
+                  >
+                    {f.pinned && (
+                      <span className="absolute top-1.5 right-1.5 text-amber-400 opacity-70">
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>
+                      </span>
+                    )}
+                    <div className="flex justify-center mb-2">
+                      <FileIcon type={f.file_type} size="sm" />
+                    </div>
+                    <div className="text-[10.5px] text-gray-700 font-medium leading-snug break-words line-clamp-2">
+                      {f.filename}
+                    </div>
+                    {f.status === 'complete' && (
+                      <div className="text-[9px] text-emerald-600 mt-0.5 font-medium">✓ complete</div>
+                    )}
                   </div>
-                  <div style={{
-                    fontSize: '10.5px', color: '#374151', fontWeight: '500',
-                    display: '-webkit-box', WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                    lineHeight: '1.35', wordBreak: 'break-word',
-                  }}>{f.filename}</div>
-                  {f.status === 'complete' && (
-                    <div style={{ fontSize: '9px', color: '#16a34a', marginTop: '3px' }}>✓</div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )
+        }
+      </Card>
 
       {showModal && (
         <NewFileModal
@@ -322,7 +298,7 @@ export default function Home() {
   }, [])
 
   return (
-    <div style={styles.wrap}>
+    <div className="flex gap-5 p-6 items-start max-w-[1200px] mx-auto">
       <Tickets users={users} />
       <TodoPanel users={users} />
       <FilePanel />
