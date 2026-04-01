@@ -6,6 +6,7 @@ import TodoList from './pages/TodoList'
 import TodoDetail from './pages/TodoDetail'
 import FileList from './pages/FileList'
 import FileDetail from './pages/FileDetail'
+import FolderDetail from './pages/FolderDetail'
 import MessageDetail from './pages/MessageDetail'
 import Layout from './components/Layout'
 import MessageList from './pages/MessageList'
@@ -30,6 +31,7 @@ export default function App() {
             <Route path="home/todos" element={<TodoList />} />
             <Route path="home/todos/:id" element={<TodoDetail />} />
             <Route path="home/files" element={<FileList />} />
+            <Route path="home/files/folders/:folderId" element={<FolderDetail />} />
             <Route path="home/files/:id" element={<FileDetail />} />
             <Route path="home/messages" element={<MessageList />} />
             <Route path="home/messages/:id" element={<MessageDetail />} />

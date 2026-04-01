@@ -4,6 +4,30 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Pencil, X, Check } from 'lucide-react'
 
+function TodoDot({ onClick }) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="relative w-5 h-5 shrink-0 flex items-center justify-center bg-transparent border-none cursor-pointer p-0 mt-0.5"
+    >
+      {hovered ? (
+        <svg className="w-4 h-4 text-emerald-500 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <circle cx="12" cy="12" r="10" className="fill-emerald-50 stroke-emerald-400" strokeWidth={1.5} />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M7 13l3.5 3.5L17 9" />
+        </svg>
+      ) : (
+        <span className="relative flex h-3 w-3">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-60" />
+          <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-400 opacity-90" />
+        </span>
+      )}
+    </button>
+  )
+}
+
 export default function TodoDetail() {
   const { id } = useParams()
   const { user } = useAuth()
@@ -13,6 +37,10 @@ export default function TodoDetail() {
   const [log, setLog] = useState([])
   const [editing, setEditing] = useState(false)
   const [editText, setEditText] = useState('')
+  const [editingNote, setEditingNote] = useState(false)
+  const [editNote, setEditNote] = useState('')
+  const [showCompleteNotePrompt, setShowCompleteNotePrompt] = useState(false)
+  const [pendingCompleteNote, setPendingCompleteNote] = useState('')
   const [users, setUsers] = useState([])
   const [showDelete, setShowDelete] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
@@ -23,7 +51,7 @@ export default function TodoDetail() {
   const fetchAll = async () => {
     const { data: t } = await supabase
       .from('todos')
-      .select(`id, text, completed, completed_at, created_at, message_id,
+      .select(`id, text, note, completed, completed_at, created_at, message_id,
         assigned_user:users!todos_assigned_to_fkey(display_name, avatar_url),
         created_by_user:users!todos_created_by_fkey(display_name, avatar_url),
         completed_by_user:users!todos_completed_by_fkey(display_name),
@@ -34,6 +62,7 @@ export default function TodoDetail() {
       .single()
     setTodo(t)
     setEditText(t?.text || '')
+    setEditNote(t?.note || '')
 
     const { data: l } = await supabase
       .from('activity_log')
@@ -48,17 +77,34 @@ export default function TodoDetail() {
     setUsers(u || [])
   }
 
-  const toggleComplete = async () => {
-    const newVal = !todo.completed
-    await supabase.from('todos').update({
+  const toggleComplete = () => {
+    if (!todo.completed) {
+      setPendingCompleteNote(todo.note || '')
+      setShowCompleteNotePrompt(true)
+    } else {
+      doToggleComplete(false, null)
+    }
+  }
+
+  const doToggleComplete = async (newVal, note) => {
+    const updates = {
       completed: newVal,
       completed_by: newVal ? user.id : null,
-      completed_at: newVal ? new Date().toISOString() : null
-    }).eq('id', id)
+      completed_at: newVal ? new Date().toISOString() : null,
+    }
+    if (newVal && note !== null) updates.note = note
+    await supabase.from('todos').update(updates).eq('id', id)
     await supabase.from('activity_log').insert({
       entity_type: 'todo', entity_id: id,
       action: newVal ? 'completed' : 'reopened', performed_by: user.id
     })
+    setShowCompleteNotePrompt(false)
+    fetchAll()
+  }
+
+  const saveNote = async () => {
+    await supabase.from('todos').update({ note: editNote.trim() || null }).eq('id', id)
+    setEditingNote(false)
     fetchAll()
   }
 
@@ -105,16 +151,16 @@ export default function TodoDetail() {
 
         {/* Todo text + complete toggle */}
         <div className="flex items-start gap-3 mb-5">
-          <button
-            onClick={toggleComplete}
-            className={`w-5 h-5 rounded-full shrink-0 mt-0.5 border-2 flex items-center justify-center p-0 cursor-pointer transition-colors ${
-              todo.completed
-                ? 'border-emerald-500 bg-emerald-500'
-                : 'border-gray-300 bg-transparent hover:border-emerald-400'
-            }`}
-          >
-            {todo.completed && <span className="text-white text-[10px] leading-none">✓</span>}
-          </button>
+          {todo.completed ? (
+            <button
+              onClick={toggleComplete}
+              className="w-5 h-5 rounded-full shrink-0 mt-0.5 border-2 border-emerald-500 bg-emerald-500 flex items-center justify-center p-0 cursor-pointer transition-colors"
+            >
+              <span className="text-white text-[10px] leading-none">✓</span>
+            </button>
+          ) : (
+            <TodoDot onClick={toggleComplete} />
+          )}
 
           <div className="flex-1 min-w-0">
             {editing ? (
@@ -179,6 +225,58 @@ export default function TodoDetail() {
             <span className="text-gray-400">Created</span>
             <span className="text-gray-600">{formatDate(todo.created_at)}</span>
           </div>
+        </div>
+
+        {/* Note */}
+        <div className="pt-3 border-t border-gray-100 mt-1">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Note</span>
+            {!editingNote && (
+              <button
+                onClick={() => { setEditingNote(true); setEditNote(todo.note || '') }}
+                className="p-0.5 text-gray-300 hover:text-gray-500 bg-transparent border-none cursor-pointer transition-colors rounded"
+                title="Edit note"
+              >
+                <Pencil size={11} />
+              </button>
+            )}
+          </div>
+          {editingNote ? (
+            <div className="space-y-2">
+              <textarea
+                value={editNote}
+                onChange={e => setEditNote(e.target.value)}
+                autoFocus
+                rows={3}
+                placeholder="Add a note..."
+                onKeyDown={e => { if (e.key === 'Escape') { setEditingNote(false); setEditNote(todo.note || '') } }}
+                className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 box-border resize-none"
+              />
+              <div className="flex gap-1.5">
+                <button
+                  onClick={saveNote}
+                  className="flex items-center gap-1 text-xs px-2.5 py-1 bg-gray-900 text-white border-none rounded-md cursor-pointer hover:bg-gray-700 transition-colors"
+                >
+                  <Check size={11} /> Save
+                </button>
+                <button
+                  onClick={() => { setEditingNote(false); setEditNote(todo.note || '') }}
+                  className="flex items-center gap-1 text-xs px-2.5 py-1 bg-white text-gray-600 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50 transition-colors"
+                >
+                  <X size={11} /> Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p
+              onClick={() => { setEditingNote(true); setEditNote(todo.note || '') }}
+              className={`text-sm leading-relaxed cursor-pointer rounded px-1 -mx-1 py-0.5 hover:bg-gray-50 transition-colors ${
+                todo.note ? 'text-gray-700' : 'text-gray-300 italic'
+              }`}
+            >
+              {todo.note || 'No note — click to add one'}
+            </p>
+          )}
         </div>
 
         {/* From message */}
@@ -303,6 +401,38 @@ export default function TodoDetail() {
           </div>
         )}
       </div>
+
+      {/* Mark complete — edit note prompt */}
+      {showCompleteNotePrompt && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-5 w-[400px] max-w-[95vw]">
+            <h3 className="text-sm font-semibold text-gray-900 mb-1 mt-0">Mark as complete</h3>
+            <p className="text-xs text-gray-400 mb-3">Optionally add or update a note before completing this todo.</p>
+            <textarea
+              value={pendingCompleteNote}
+              onChange={e => setPendingCompleteNote(e.target.value)}
+              autoFocus
+              rows={3}
+              placeholder="Add a note (optional)..."
+              className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 box-border resize-none mb-3"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowCompleteNotePrompt(false)}
+                className="text-xs px-3 py-1.5 bg-white text-gray-600 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => doToggleComplete(true, pendingCompleteNote.trim() || null)}
+                className="text-xs px-3 py-1.5 bg-emerald-600 text-white border-none rounded-md cursor-pointer hover:bg-emerald-700 transition-colors"
+              >
+                Complete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )

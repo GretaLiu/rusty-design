@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { Pencil, X, Check, ChevronLeft, ChevronRight, Search } from 'lucide-react'
+import { Pencil, X, Check, ChevronLeft, ChevronRight, Search, Download } from 'lucide-react'
+import * as XLSX from 'xlsx'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
@@ -53,7 +54,7 @@ function HistoryPanel({ tableName, externalSearch = '' }) {
   const fetchSnapshot = async () => {
     const { data } = await supabase
       .from('inventory_history')
-      .select('product_sku, quantity, location, notes')
+      .select('product_sku, product_name, quantity, location, notes')
       .eq('table_name', tableName)
       .eq('snapshot_date', selectedDate)
       .order('product_sku', { ascending: true })
@@ -73,6 +74,7 @@ function HistoryPanel({ tableName, externalSearch = '' }) {
     const q = externalSearch.toLowerCase()
     return (
       r.product_sku?.toLowerCase().includes(q) ||
+      r.product_name?.toLowerCase().includes(q) ||
       r.location?.toLowerCase().includes(q) ||
       r.notes?.toLowerCase().includes(q)
     )
@@ -128,9 +130,10 @@ function HistoryPanel({ tableName, externalSearch = '' }) {
         <Table>
           <TableHeader>
             <TableRow className="bg-gray-50">
-              <TableHead className="text-[10px] font-semibold text-gray-400 uppercase">SKU</TableHead>
-              <TableHead className="text-[10px] font-semibold text-gray-400 uppercase text-right">QTY</TableHead>
-              <TableHead className="text-[10px] font-semibold text-gray-400 uppercase">LOCATION</TableHead>
+              <TableHead className="text-[10px] font-semibold text-gray-400 uppercase w-[120px]">SKU</TableHead>
+              <TableHead className="text-[10px] font-semibold text-gray-400 uppercase w-[200px]">PRODUCT NAME</TableHead>
+              <TableHead className="text-[10px] font-semibold text-gray-400 uppercase text-right w-[60px]">QTY</TableHead>
+              <TableHead className="text-[10px] font-semibold text-gray-400 uppercase w-[100px]">LOCATION</TableHead>
               <TableHead className="text-[10px] font-semibold text-gray-400 uppercase">NOTES</TableHead>
             </TableRow>
           </TableHeader>
@@ -138,6 +141,9 @@ function HistoryPanel({ tableName, externalSearch = '' }) {
             {filtered.map((row, i) => (
               <TableRow key={i}>
                 <TableCell className="py-1.5 px-3 text-xs font-medium text-gray-900">{row.product_sku}</TableCell>
+                <TableCell className="py-1.5 px-3 text-xs text-gray-700 max-w-[200px]">
+                  <span className="truncate block" title={row.product_name || ''}>{row.product_name || '—'}</span>
+                </TableCell>
                 <TableCell className="py-1.5 px-3 text-xs font-bold text-gray-900 text-right">{row.quantity}</TableCell>
                 <TableCell className="py-1.5 px-3 text-xs text-gray-500">{row.location || '—'}</TableCell>
                 <TableCell className="py-1.5 px-3 text-xs text-gray-500">{row.notes || '—'}</TableCell>
@@ -159,7 +165,8 @@ function ReadyTable() {
   const [rows, setRows] = useState([])
   const [page, setPage] = useState(0)
   const [isEditing, setIsEditing] = useState(false)
-  const [editDraft, setEditDraft] = useState({})   // { [id]: { quantity, location, notes } }
+  const [editDraft, setEditDraft] = useState({})    // { [id]: { quantity, product_name, location, notes } }
+  const originalRef = useRef({})                    // 进入编辑时的原始值，用于判断是否有改动
   const [saving, setSaving] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [search, setSearch] = useState('')
@@ -172,7 +179,7 @@ function ReadyTable() {
   const fetchRows = async () => {
     const { data } = await supabase
       .from(dbTable)
-      .select(`id, product_sku, quantity, location, notes, last_updated_at,
+      .select(`id, product_sku, product_name, quantity, location, notes, last_updated_at,
         last_updated_by_user:users!${dbTable}_last_updated_by_fkey(display_name, avatar_url)`)
       .order('product_sku', { ascending: true })
     setRows(data || [])
@@ -183,6 +190,7 @@ function ReadyTable() {
     const q = search.toLowerCase()
     return (
       r.product_sku?.toLowerCase().includes(q) ||
+      r.product_name?.toLowerCase().includes(q) ||
       r.location?.toLowerCase().includes(q) ||
       r.notes?.toLowerCase().includes(q)
     )
@@ -196,9 +204,13 @@ function ReadyTable() {
 
   const enterEditMode = () => {
     const draft = {}
+    const original = {}
     pageRows.forEach(r => {
-      draft[r.id] = { quantity: r.quantity, location: r.location || '', notes: r.notes || '' }
+      const vals = { quantity: r.quantity, product_name: r.product_name || '', location: r.location || '', notes: r.notes || '' }
+      draft[r.id] = { ...vals }
+      original[r.id] = { ...vals }
     })
+    originalRef.current = original
     setEditDraft(draft)
     setIsEditing(true)
   }
@@ -206,24 +218,40 @@ function ReadyTable() {
   const cancelEdit = () => {
     setIsEditing(false)
     setEditDraft({})
+    originalRef.current = {}
+  }
+
+  const isDirty = (id, vals) => {
+    const orig = originalRef.current[id]
+    if (!orig) return false
+    return (
+      String(parseInt(vals.quantity) || 0) !== String(parseInt(orig.quantity) || 0) ||
+      (vals.product_name || '') !== (orig.product_name || '') ||
+      (vals.location || '') !== (orig.location || '') ||
+      (vals.notes || '') !== (orig.notes || '')
+    )
   }
 
   const saveEdit = async () => {
     setSaving(true)
     const now = new Date().toISOString()
-    const updates = Object.entries(editDraft).map(([id, vals]) =>
-      supabase.from(dbTable).update({
-        quantity: parseInt(vals.quantity) || 0,
-        location: vals.location,
-        notes: vals.notes,
-        last_updated_by: user.id,
-        last_updated_at: now
-      }).eq('id', id)
-    )
+    const updates = Object.entries(editDraft)
+      .filter(([id, vals]) => isDirty(id, vals))
+      .map(([id, vals]) =>
+        supabase.from(dbTable).update({
+          quantity: parseInt(vals.quantity) || 0,
+          product_name: vals.product_name,
+          location: vals.location,
+          notes: vals.notes,
+          last_updated_by: user.id,
+          last_updated_at: now
+        }).eq('id', id)
+      )
     await Promise.all(updates)
     setSaving(false)
     setIsEditing(false)
     setEditDraft({})
+    originalRef.current = {}
     fetchRows()
   }
 
@@ -247,6 +275,25 @@ function ReadyTable() {
     setEditDraft(prev => ({ ...prev, [id]: { ...prev[id], [field]: value } }))
   }
 
+  const exportToExcel = () => {
+    const data = filtered.map(r => ({
+      SKU: r.product_sku,
+      'Product Name': r.product_name || '',
+      Quantity: r.quantity,
+      Location: r.location || '',
+      Notes: r.notes || '',
+      'Last Updated': r.last_updated_at
+        ? new Date(r.last_updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        : '',
+      'Updated By': r.last_updated_by_user?.display_name || ''
+    }))
+    const ws = XLSX.utils.json_to_sheet(data)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Ready to Ship')
+    const date = new Date().toISOString().slice(0, 10)
+    XLSX.writeFile(wb, `ready-to-ship-${date}.xlsx`)
+  }
+
   return (
     <>
       {/* toolbar */}
@@ -264,7 +311,7 @@ function ReadyTable() {
           <div style={{ position: 'relative', flex: 1, maxWidth: '280px' }}>
             <Search size={12} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
             <input
-              placeholder="Search SKU, location, notes…"
+              placeholder="Search SKU, product name, location…"
               value={showHistory ? historySearch : search}
               onChange={e => {
                 if (showHistory) { setHistorySearch(e.target.value) }
@@ -287,17 +334,27 @@ function ReadyTable() {
           }}>
             {showHistory ? '← Current' : 'History'}
           </button>
+          {!showHistory && (
+            <button onClick={exportToExcel} title="Export to Excel" style={{
+              fontSize: '12px', padding: '4px 10px', backgroundColor: '#fff', color: '#374151',
+              border: '1px solid #e5e7eb', borderRadius: '5px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '4px'
+            }}>
+              <Download size={12} />
+              Export
+            </button>
+          )}
           {!showHistory && !isEditing && (
             <button onClick={enterEditMode} style={{
-              fontSize: '12px', padding: '4px 10px', backgroundColor: '#f3f4f6', color: '#374151',
-              border: '1px solid #e5e7eb', borderRadius: '5px', cursor: 'pointer'
+              fontSize: '12px', padding: '4px 14px', backgroundColor: '#111', color: '#fff',
+              border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: '600'
             }}>Edit</button>
           )}
           {!showHistory && isEditing && (
             <>
               <button onClick={saveEdit} disabled={saving} style={{
-                fontSize: '12px', padding: '4px 10px', backgroundColor: '#111', color: '#fff',
-                border: 'none', borderRadius: '5px', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1
+                fontSize: '12px', padding: '4px 14px', backgroundColor: '#16a34a', color: '#fff',
+                border: 'none', borderRadius: '5px', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1, fontWeight: '600'
               }}>{saving ? 'Saving…' : 'Save'}</button>
               <button onClick={cancelEdit} style={{
                 fontSize: '12px', padding: '4px 10px', backgroundColor: '#fff', color: '#374151',
@@ -326,17 +383,18 @@ function ReadyTable() {
           <Table>
             <TableHeader>
               <TableRow className="bg-gray-50">
-                <TableHead className="text-[10px] font-semibold text-gray-400 uppercase">SKU</TableHead>
-                <TableHead className="text-[10px] font-semibold text-gray-400 uppercase text-right">QTY</TableHead>
-                <TableHead className="text-[10px] font-semibold text-gray-400 uppercase">LOCATION</TableHead>
+                <TableHead className="text-[10px] font-semibold text-gray-400 uppercase w-[120px]">SKU</TableHead>
+                <TableHead className="text-[10px] font-semibold text-gray-400 uppercase w-[200px]">PRODUCT NAME</TableHead>
+                <TableHead className="text-[10px] font-semibold text-gray-400 uppercase text-right w-[60px]">QTY</TableHead>
+                <TableHead className="text-[10px] font-semibold text-gray-400 uppercase w-[100px]">LOCATION</TableHead>
                 <TableHead className="text-[10px] font-semibold text-gray-400 uppercase">NOTES</TableHead>
-                <TableHead className="text-[10px] font-semibold text-gray-400 uppercase">UPDATED</TableHead>
+                <TableHead className="text-[10px] font-semibold text-gray-400 uppercase w-[80px]">UPDATED</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {pageRows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-5 text-center text-xs text-gray-400">
+                  <TableCell colSpan={6} className="py-5 text-center text-xs text-gray-400">
                     {search ? `No results for "${search}"` : 'No items'}
                   </TableCell>
                 </TableRow>
@@ -346,6 +404,15 @@ function ReadyTable() {
                 return (
                   <TableRow key={row.id}>
                     <TableCell className={`${isEditing ? 'py-1 px-3' : 'py-1.5 px-3'} font-medium text-gray-900 text-xs`}>{row.product_sku}</TableCell>
+                    <TableCell className={`${isEditing ? 'py-1 px-1.5' : 'py-1.5 px-3'} text-xs max-w-[200px]`}>
+                      {isEditing ? (
+                        <input value={draft?.product_name ?? (row.product_name || '')}
+                          onChange={e => setDraftField(row.id, 'product_name', e.target.value)}
+                          style={inputStyle} />
+                      ) : (
+                        <span className="text-gray-700 truncate block" title={row.product_name || ''}>{row.product_name || '—'}</span>
+                      )}
+                    </TableCell>
                     <TableCell className={`${isEditing ? 'py-1 px-1.5' : 'py-1.5 px-3'} text-right text-xs`}>
                       {isEditing ? (
                         <input type="number" value={draft?.quantity ?? row.quantity}

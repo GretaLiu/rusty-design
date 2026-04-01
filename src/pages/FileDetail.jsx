@@ -94,7 +94,9 @@ export default function FileDetail() {
   }
 
   const updateStatus = async (status) => {
-    await supabase.from('files').update({ status }).eq('id', id)
+    const update = { status }
+    if (status === 'complete' || status === 'void') update.folder_id = null
+    await supabase.from('files').update(update).eq('id', id)
     await supabase.from('activity_log').insert({
       entity_type: 'file', entity_id: id, action: status, performed_by: user.id
     })

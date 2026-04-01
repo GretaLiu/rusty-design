@@ -5,6 +5,30 @@ import { useAuth } from '../context/AuthContext'
 import NewTodoModal from '../components/NewTodoModal'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 
+function TodoDot({ onClick }) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="relative w-5 h-5 shrink-0 flex items-center justify-center bg-transparent border-none cursor-pointer p-0"
+    >
+      {hovered ? (
+        <svg className="w-4 h-4 text-emerald-500 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <circle cx="12" cy="12" r="10" className="fill-emerald-50 stroke-emerald-400" strokeWidth={1.5} />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M7 13l3.5 3.5L17 9" />
+        </svg>
+      ) : (
+        <span className="relative flex h-3 w-3">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-60" />
+          <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-400 opacity-90" />
+        </span>
+      )}
+    </button>
+  )
+}
+
 export default function TodoList() {
   const [tab, setTab] = useState('active')
   const [myTodos, setMyTodos] = useState([])
@@ -12,6 +36,7 @@ export default function TodoList() {
   const [log, setLog] = useState([])
   const [users, setUsers] = useState([])
   const [showModal, setShowModal] = useState(false)
+  const [completePrompt, setCompletePrompt] = useState(null) // { todo, note }
   const { user } = useAuth()
   const navigate = useNavigate()
 
@@ -58,18 +83,28 @@ export default function TodoList() {
     setLog(data || [])
   }
 
-  const toggleComplete = async (e, todo) => {
+  const toggleComplete = (e, todo) => {
     e.stopPropagation()
-    const newVal = !todo.completed
-    await supabase.from('todos').update({
+    if (!todo.completed) {
+      setCompletePrompt({ todo, note: todo.note || '' })
+    } else {
+      doToggleComplete(todo, false, null)
+    }
+  }
+
+  const doToggleComplete = async (todo, newVal, note) => {
+    const updates = {
       completed: newVal,
       completed_by: newVal ? user.id : null,
-      completed_at: newVal ? new Date().toISOString() : null
-    }).eq('id', todo.id)
+      completed_at: newVal ? new Date().toISOString() : null,
+    }
+    if (newVal && note !== null) updates.note = note
+    await supabase.from('todos').update(updates).eq('id', todo.id)
     await supabase.from('activity_log').insert({
       entity_type: 'todo', entity_id: todo.id,
       action: newVal ? 'completed' : 'reopened', performed_by: user.id
     })
+    setCompletePrompt(null)
     if (tab === 'active') fetchTodos(false)
     else fetchTodos(true)
   }
@@ -92,16 +127,16 @@ export default function TodoList() {
       onClick={() => navigate(`/home/todos/${todo.id}`)}
       className="flex items-center gap-3 px-3.5 py-2.5 border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors last:border-b-0"
     >
-      <button
-        onClick={e => toggleComplete(e, todo)}
-        className={`w-4 h-4 rounded-full shrink-0 border-2 flex items-center justify-center p-0 cursor-pointer transition-colors ${
-          todo.completed
-            ? 'border-emerald-500 bg-emerald-500'
-            : 'border-gray-300 bg-transparent hover:border-emerald-400'
-        }`}
-      >
-        {todo.completed && <span className="text-white text-[9px] leading-none">✓</span>}
-      </button>
+      {todo.completed ? (
+        <button
+          onClick={e => toggleComplete(e, todo)}
+          className="w-4 h-4 rounded-full shrink-0 border-2 border-emerald-500 bg-emerald-500 flex items-center justify-center p-0 cursor-pointer"
+        >
+          <span className="text-white text-[9px] leading-none">✓</span>
+        </button>
+      ) : (
+        <TodoDot onClick={e => toggleComplete(e, todo)} />
+      )}
       <div className="flex-1 min-w-0">
         <span className={`text-sm block truncate ${todo.completed ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
           {todo.text}
@@ -220,6 +255,40 @@ export default function TodoList() {
             if (tab === 'active') fetchTodos(false)
           }}
         />
+      )}
+
+      {completePrompt && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-5 w-[400px] max-w-[95vw]">
+            <h3 className="text-sm font-semibold text-gray-900 mb-1 mt-0">Mark as complete</h3>
+            <p className="text-xs text-gray-400 mb-1">
+              <span className="text-gray-600 font-medium">{completePrompt.todo.text}</span>
+            </p>
+            <p className="text-xs text-gray-400 mb-3">Optionally add or update a note before completing.</p>
+            <textarea
+              value={completePrompt.note}
+              onChange={e => setCompletePrompt(p => ({ ...p, note: e.target.value }))}
+              autoFocus
+              rows={3}
+              placeholder="Add a note (optional)..."
+              className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 box-border resize-none mb-3"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setCompletePrompt(null)}
+                className="text-xs px-3 py-1.5 bg-white text-gray-600 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => doToggleComplete(completePrompt.todo, true, completePrompt.note.trim() || null)}
+                className="text-xs px-3 py-1.5 bg-emerald-600 text-white border-none rounded-md cursor-pointer hover:bg-emerald-700 transition-colors"
+              >
+                Complete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   )

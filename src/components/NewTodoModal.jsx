@@ -13,6 +13,7 @@ export default function NewTodoModal({ users, onClose, onCreated }) {
   const { user } = useAuth()
   const [text, setText] = useState('')
   const [assignedTo, setAssignedTo] = useState('')
+  const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   const handleSubmit = async () => {
@@ -20,7 +21,7 @@ export default function NewTodoModal({ users, onClose, onCreated }) {
     setSubmitting(true)
     const { data: todo } = await supabase
       .from('todos')
-      .insert({ text: text.trim(), assigned_to: assignedTo, created_by: user.id })
+      .insert({ text: text.trim(), assigned_to: assignedTo, created_by: user.id, note: note.trim() || null })
       .select().single()
     if (todo) {
       await supabase.from('activity_log').insert({
@@ -68,6 +69,19 @@ export default function NewTodoModal({ users, onClose, onCreated }) {
                 <option key={u.id} value={u.id}>{u.display_name}</option>
               ))}
             </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">
+              Note <span className="text-gray-400 font-normal normal-case">(optional)</span>
+            </label>
+            <textarea
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              placeholder="Any additional context..."
+              rows={2}
+              className="w-full px-2.5 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 resize-none"
+            />
           </div>
 
           <div className="flex justify-end gap-2 pt-1">

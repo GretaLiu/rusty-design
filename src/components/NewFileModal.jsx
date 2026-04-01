@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Folder } from 'lucide-react'
 
 const ALLOWED_TYPES = [
   'application/pdf', 'image/jpeg', 'image/png', 'image/webp',
@@ -26,9 +27,10 @@ const fileIcon = (type) => {
   return '📁'
 }
 
-export default function NewFileModal({ messageId = null, onClose, onCreated }) {
+export default function NewFileModal({ messageId = null, allowFolder = true, onClose, onCreated }) {
   const { user } = useAuth()
   const [files, setFiles] = useState([])
+  const [folderName, setFolderName] = useState(null) // non-null = folder upload mode
   const [dragging, setDragging] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -45,6 +47,21 @@ export default function NewFileModal({ messageId = null, onClose, onCreated }) {
     })
   }
 
+  const handleFolderInput = (e) => {
+    const incoming = Array.from(e.target.files)
+    if (incoming.length === 0) return
+    // Extract folder name from the first file's webkitRelativePath
+    const firstPath = incoming[0].webkitRelativePath
+    const name = firstPath ? firstPath.split('/')[0] : 'Uploaded Folder'
+    setFolderName(name)
+    addFiles(incoming)
+  }
+
+  const clearFolderMode = () => {
+    setFolderName(null)
+    setFiles([])
+  }
+
   const handleDrop = (e) => {
     e.preventDefault()
     setDragging(false)
@@ -54,12 +71,40 @@ export default function NewFileModal({ messageId = null, onClose, onCreated }) {
   const handleDragOver = (e) => { e.preventDefault(); setDragging(true) }
   const handleDragLeave = () => setDragging(false)
 
-  const removeFile = (i) => setFiles(prev => prev.filter((_, idx) => idx !== i))
+  const removeFile = (i) => {
+    setFiles(prev => {
+      const next = prev.filter((_, idx) => idx !== i)
+      if (next.length === 0) setFolderName(null)
+      return next
+    })
+  }
 
   const handleUpload = async () => {
     if (files.length === 0) return
     setUploading(true)
     setUploadError('')
+
+    let folderId = null
+
+    // If folder upload, create the folder record first
+    if (folderName) {
+      const { data: folderRow, error: folderErr } = await supabase
+        .from('file_folders')
+        .insert({ name: folderName, created_by: user.id })
+        .select()
+        .single()
+      if (folderErr || !folderRow) {
+        setUploadError('Failed to create folder record.')
+        setUploading(false)
+        return
+      }
+      folderId = folderRow.id
+      await supabase.from('activity_log').insert({
+        entity_type: 'folder', entity_id: folderId,
+        action: 'created', performed_by: user.id
+      })
+    }
+
     let done = 0
     const failed = []
     for (const file of files) {
@@ -75,6 +120,7 @@ export default function NewFileModal({ messageId = null, onClose, onCreated }) {
       const { data: { publicUrl } } = supabase.storage.from('files').getPublicUrl(path)
       const { data: fileRow } = await supabase.from('files').insert({
         ...(messageId ? { message_id: messageId } : {}),
+        ...(folderId ? { folder_id: folderId } : {}),
         filename: file.name,
         file_url: publicUrl,
         file_type: ext.toUpperCase(),
@@ -105,32 +151,77 @@ export default function NewFileModal({ messageId = null, onClose, onCreated }) {
         </DialogHeader>
 
         <div className="flex flex-col gap-4 pt-1 min-h-0 flex-1">
-          {/* Drop zone */}
-          <div
-            ref={dropRef}
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onClick={() => document.getElementById('file-input-modal').click()}
-            className={`shrink-0 border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-              dragging ? 'border-gray-900 bg-gray-50' : 'border-gray-300 bg-white hover:bg-gray-50'
-            }`}
-          >
-            <div className="text-3xl mb-2">📂</div>
-            <p className="text-sm text-gray-500">
-              Drag &amp; drop files here, or{' '}
-              <span className="text-gray-900 font-semibold">click to browse</span>
-            </p>
-            <p className="text-xs text-gray-400 mt-1">PDF, images, Word, Excel</p>
-            <input
-              id="file-input-modal"
-              type="file"
-              multiple
-              className="hidden"
-              accept={ALLOWED_EXT}
-              onChange={e => addFiles(e.target.files)}
-            />
-          </div>
+
+          {/* Folder mode banner */}
+          {folderName && (
+            <div className="shrink-0 flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+              <Folder size={14} className="text-amber-500 shrink-0" />
+              <span className="text-xs text-amber-800 flex-1">
+                Uploading as folder: <span className="font-semibold">{folderName}</span>
+              </span>
+              <button
+                onClick={clearFolderMode}
+                className="text-amber-400 hover:text-amber-600 text-xs bg-transparent border-none cursor-pointer"
+              >
+                Cancel folder
+              </button>
+            </div>
+          )}
+
+          {/* Drop zone (only shown when not in folder mode) */}
+          {!folderName && (
+            <div
+              ref={dropRef}
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onClick={() => document.getElementById('file-input-modal').click()}
+              className={`shrink-0 border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                dragging ? 'border-gray-900 bg-gray-50' : 'border-gray-300 bg-white hover:bg-gray-50'
+              }`}
+            >
+              <div className="text-3xl mb-2">📂</div>
+              <p className="text-sm text-gray-500">
+                Drag &amp; drop files here, or{' '}
+                <span className="text-gray-900 font-semibold">click to browse</span>
+              </p>
+              <p className="text-xs text-gray-400 mt-1">PDF, images, Word, Excel</p>
+              <input
+                id="file-input-modal"
+                type="file"
+                multiple
+                className="hidden"
+                accept={ALLOWED_EXT}
+                onChange={e => addFiles(e.target.files)}
+              />
+            </div>
+          )}
+
+          {/* Upload folder button (only shown when not in folder mode and no files yet) */}
+          {allowFolder && !folderName && files.length === 0 && (
+            <div className="shrink-0 flex items-center gap-2">
+              <div className="flex-1 h-px bg-gray-100" />
+              <span className="text-xs text-gray-400 shrink-0">or</span>
+              <div className="flex-1 h-px bg-gray-100" />
+            </div>
+          )}
+          {allowFolder && !folderName && files.length === 0 && (
+            <button
+              onClick={() => document.getElementById('folder-input-modal').click()}
+              className="shrink-0 flex items-center justify-center gap-2 border border-gray-200 rounded-lg py-3 text-sm text-gray-600 bg-white hover:bg-gray-50 cursor-pointer transition-colors"
+            >
+              <Folder size={15} className="text-amber-400" />
+              Upload a folder
+              <input
+                id="folder-input-modal"
+                type="file"
+                multiple
+                webkitdirectory=""
+                className="hidden"
+                onChange={handleFolderInput}
+              />
+            </button>
+          )}
 
           {/* File list */}
           {files.length > 0 && (
@@ -178,7 +269,12 @@ export default function NewFileModal({ messageId = null, onClose, onCreated }) {
               disabled={uploading || files.length === 0}
               className="text-sm bg-gray-900 hover:bg-gray-800 text-white"
             >
-              {uploading ? `Uploading ${progress}%` : `Upload${files.length > 0 ? ` (${files.length})` : ''}`}
+              {uploading
+                ? `Uploading ${progress}%`
+                : folderName
+                  ? `Upload folder (${files.length} file${files.length !== 1 ? 's' : ''})`
+                  : `Upload${files.length > 0 ? ` (${files.length})` : ''}`
+              }
             </Button>
           </div>
         </div>

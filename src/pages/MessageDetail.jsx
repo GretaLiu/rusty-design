@@ -3,6 +3,31 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import FileIcon from '../components/FileIcon'
+import NewFileModal from '../components/NewFileModal'
+
+function TodoDot({ onClick }) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="relative w-5 h-5 shrink-0 flex items-center justify-center bg-transparent border-none cursor-pointer p-0"
+    >
+      {hovered ? (
+        <svg className="w-4 h-4 text-emerald-500 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <circle cx="12" cy="12" r="10" className="fill-emerald-50 stroke-emerald-400" strokeWidth={1.5} />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M7 13l3.5 3.5L17 9" />
+        </svg>
+      ) : (
+        <span className="relative flex h-3 w-3">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-60" />
+          <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-400 opacity-90" />
+        </span>
+      )}
+    </button>
+  )
+}
 
 export default function MessageDetail() {
   const { id } = useParams()
@@ -22,7 +47,7 @@ export default function MessageDetail() {
   const [showTodoForm, setShowTodoForm] = useState(false)
   const [todoText, setTodoText] = useState('')
   const [todoAssignee, setTodoAssignee] = useState('')
-  const [uploading, setUploading] = useState(false)
+  const [showUploadModal, setShowUploadModal] = useState(false)
   const [archiveConfirm, setArchiveConfirm] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
@@ -34,7 +59,7 @@ export default function MessageDetail() {
   const fetchAll = async () => {
     const { data: msg } = await supabase
       .from('messages')
-      .select(`id, title, archived, created_at,
+      .select(`id, title, archived, created_at, created_by,
         created_by_user:users!messages_created_by_fkey(display_name, avatar_url)`)
       .eq('id', id).single()
     setMessage(msg)
@@ -167,59 +192,20 @@ export default function MessageDetail() {
 
   // ── File ───────────────────────────────────────────────────────────────────
 
-  const handleUpload = async (e) => {
-    const selectedFiles = Array.from(e.target.files)
-    if (selectedFiles.length === 0) return
-    const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
-    const valid = selectedFiles.filter(f => allowed.includes(f.type))
-    const invalid = selectedFiles.filter(f => !allowed.includes(f.type))
-    if (invalid.length > 0) alert(`Skipped ${invalid.length} unsupported file(s).`)
-    if (valid.length === 0) return
-    setUploading(true)
-    for (const file of valid) {
-      const ext = file.name.split('.').pop()
-      const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-      const { error: uploadError } = await supabase.storage.from('files').upload(path, file)
-      if (uploadError) continue
-      const { data: { publicUrl } } = supabase.storage.from('files').getPublicUrl(path)
-      const { data: fileRow } = await supabase.from('files')
-        .insert({ message_id: id, filename: file.name, file_url: publicUrl, file_type: ext.toUpperCase(), created_by: user.id })
-        .select().single()
-      if (fileRow) {
-        await supabase.from('activity_log').insert({
-          entity_type: 'file', entity_id: fileRow.id,
-          action: 'uploaded', performed_by: user.id
-        })
-      }
-    }
-    setUploading(false)
-    fetchAll()
-    e.target.value = ''
-  }
-
-  const updateFileStatus = async (file, status) => {
-    await supabase.from('files').update({ status }).eq('id', file.id)
+  const deleteFile = async (file) => {
+    const path = file.file_url.split('/').pop()
+    await supabase.storage.from('files').remove([path])
+    await supabase.from('files').delete().eq('id', file.id)
     await supabase.from('activity_log').insert({
       entity_type: 'file', entity_id: file.id,
-      action: status, performed_by: user.id
-    })
-    fetchAll()
-  }
-
-  const togglePin = async (file) => {
-    await supabase.from('files').update({ pinned: !file.pinned }).eq('id', file.id)
-    await supabase.from('activity_log').insert({
-      entity_type: 'file', entity_id: file.id,
-      action: file.pinned ? 'unpinned' : 'pinned', performed_by: user.id
+      action: 'deleted', performed_by: user.id
     })
     fetchAll()
   }
 
   // ── Archive ────────────────────────────────────────────────────────────────
 
-  const canArchive = todos.every(t => t.completed) && files.every(f => f.status !== 'active')
+  const canArchive = todos.every(t => t.completed)
 
   const handleArchive = async () => {
     await supabase.from('messages').update({ archived: true }).eq('id', id)
@@ -261,9 +247,9 @@ export default function MessageDetail() {
   if (!message) return null
 
   const openCount = todos.filter(t => !t.completed).length
-  const activeFiles = files.filter(f => f.status === 'active').length
 
   return (
+    <>
     <div className="max-w-[720px] mx-auto px-6 py-6">
 
       {/* ── Header bar ── */}
@@ -302,7 +288,7 @@ export default function MessageDetail() {
           ) : (
             <button
               onClick={() => canArchive && setArchiveConfirm(true)}
-              title={!canArchive ? 'All todos must be complete and no active files before archiving' : ''}
+              title={!canArchive ? 'All todos must be complete before archiving' : ''}
               className={`text-xs px-3 py-1.5 bg-white border rounded-md transition-colors ${
                 canArchive
                   ? 'text-gray-600 border-gray-300 cursor-pointer hover:bg-gray-50'
@@ -331,12 +317,6 @@ export default function MessageDetail() {
             <>
               <span>·</span>
               <span className="text-amber-500">{openCount} open todo{openCount > 1 ? 's' : ''}</span>
-            </>
-          )}
-          {activeFiles > 0 && (
-            <>
-              <span>·</span>
-              <span className="text-blue-500">{activeFiles} active file{activeFiles > 1 ? 's' : ''}</span>
             </>
           )}
         </div>
@@ -471,16 +451,16 @@ export default function MessageDetail() {
               onClick={() => navigate(`/home/todos/${todo.id}`)}
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer border border-gray-100 bg-white hover:bg-gray-50 transition-colors"
             >
-              <button
-                onClick={e => { e.stopPropagation(); toggleTodo(todo) }}
-                className={`w-4 h-4 rounded-full shrink-0 border-2 flex items-center justify-center p-0 cursor-pointer transition-colors ${
-                  todo.completed
-                    ? 'border-emerald-500 bg-emerald-500'
-                    : 'border-gray-300 bg-transparent hover:border-emerald-400'
-                }`}
-              >
-                {todo.completed && <span className="text-white text-[9px]">✓</span>}
-              </button>
+              {todo.completed ? (
+                <button
+                  onClick={e => { e.stopPropagation(); toggleTodo(todo) }}
+                  className="w-4 h-4 rounded-full shrink-0 border-2 border-emerald-500 bg-emerald-500 flex items-center justify-center p-0 cursor-pointer"
+                >
+                  <span className="text-white text-[9px]">✓</span>
+                </button>
+              ) : (
+                <TodoDot onClick={e => { e.stopPropagation(); toggleTodo(todo) }} />
+              )}
               <span className={`flex-1 text-sm ${todo.completed ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
                 {todo.text}
               </span>
@@ -501,14 +481,12 @@ export default function MessageDetail() {
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-gray-900 m-0">Files</h2>
           {!message.archived && (
-            <label className={`text-xs px-2.5 py-1 bg-gray-900 text-white rounded-md transition-opacity ${uploading ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-700'}`}>
-              {uploading ? 'Uploading…' : '+ Upload'}
-              <input
-                type="file" multiple className="hidden"
-                onChange={handleUpload} disabled={uploading}
-                accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx"
-              />
-            </label>
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="text-xs px-2.5 py-1 bg-gray-900 text-white rounded-md cursor-pointer hover:bg-gray-700 transition-colors border-none"
+            >
+              + Upload
+            </button>
           )}
         </div>
 
@@ -517,55 +495,37 @@ export default function MessageDetail() {
           {files.map(f => (
             <div
               key={f.id}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-100 bg-white ${f.status === 'void' ? 'opacity-40' : ''}`}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-100 bg-white"
             >
               <FileIcon type={f.file_type} size="sm" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                  {f.pinned && <span className="text-[10px]">📌</span>}
-                  {f.status === 'void'
-                    ? <span className="text-sm text-gray-400 line-through">{f.filename}</span>
-                    : (
-                      <a
-                        href={f.file_url} target="_blank" rel="noreferrer"
-                        onClick={e => e.stopPropagation()}
-                        className="text-sm text-blue-600 hover:underline no-underline"
-                      >
-                        {f.filename}
-                      </a>
-                    )
-                  }
-                  {f.status === 'complete' && (
-                    <span className="text-[10px] text-emerald-600 font-medium">✓</span>
-                  )}
+                  <a
+                    href={f.file_url} target="_blank" rel="noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    className="text-sm text-blue-600 hover:underline no-underline"
+                  >
+                    {f.filename}
+                  </a>
                 </div>
                 <span className="text-xs text-gray-400">
                   {f.created_by_user?.display_name} · {formatDate(f.created_at)}
                 </span>
               </div>
-              {!message.archived && f.status !== 'void' && (
-                <div className="flex gap-1.5 shrink-0">
-                  <button
-                    onClick={() => togglePin(f)}
-                    className="text-xs px-2 py-1 border border-gray-200 rounded cursor-pointer bg-white text-gray-500 hover:bg-gray-50 transition-colors"
-                  >
-                    {f.pinned ? 'Unpin' : 'Pin'}
-                  </button>
-                  {f.status === 'active' && (
-                    <button
-                      onClick={() => updateFileStatus(f, 'complete')}
-                      className="text-xs px-2 py-1 border border-gray-200 rounded cursor-pointer bg-white text-gray-500 hover:bg-gray-50 transition-colors"
-                    >
-                      Complete
-                    </button>
-                  )}
-                  <button
-                    onClick={() => updateFileStatus(f, 'void')}
-                    className="text-xs px-2 py-1 border border-red-200 rounded cursor-pointer bg-white text-red-400 hover:bg-red-50 transition-colors"
-                  >
-                    Void
-                  </button>
-                </div>
+              {!message.archived && message.created_by === user.id && (
+                <button
+                  onClick={() => deleteFile(f)}
+                  title="Delete file"
+                  className="p-1.5 rounded cursor-pointer bg-transparent border-none text-gray-300 hover:text-red-400 transition-colors shrink-0"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                    <path d="M10 11v6"/>
+                    <path d="M14 11v6"/>
+                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                  </svg>
+                </button>
               )}
             </div>
           ))}
@@ -618,5 +578,15 @@ export default function MessageDetail() {
       </div>
 
     </div>
+
+    {showUploadModal && (
+      <NewFileModal
+        messageId={id}
+        allowFolder={false}
+        onClose={() => setShowUploadModal(false)}
+        onCreated={() => { setShowUploadModal(false); fetchAll() }}
+      />
+    )}
+    </>
   )
 }

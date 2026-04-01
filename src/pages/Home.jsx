@@ -140,29 +140,32 @@ function Tickets({ users }) {
 // ─── Todo Complete Confirm Modal ──────────────────────────────────────────────
 
 function CompleteConfirmModal({ todo, onConfirm, onCancel }) {
+  const [note, setNote] = useState(todo.note || '')
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onCancel} />
-      <div className="relative bg-white rounded-2xl shadow-xl px-8 py-7 w-80 flex flex-col items-center gap-4">
-        <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center">
-          <svg className="w-6 h-6 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
-        </div>
-        <div className="text-center">
-          <p className="text-sm font-semibold text-gray-900">Complete the task?</p>
-          <p className="text-xs text-gray-400 mt-1 line-clamp-2">{todo.text}</p>
-        </div>
-        <div className="flex gap-2 w-full">
+      <div className="relative bg-white rounded-xl shadow-xl p-5 w-[400px] max-w-[95vw]">
+        <h3 className="text-sm font-semibold text-gray-900 mb-1 mt-0">Mark as complete</h3>
+        <p className="text-xs text-gray-600 font-medium mb-0.5 truncate">{todo.text}</p>
+        <p className="text-xs text-gray-400 mb-3">Optionally add or update a note before completing.</p>
+        <textarea
+          value={note}
+          onChange={e => setNote(e.target.value)}
+          autoFocus
+          rows={3}
+          placeholder="Add a note (optional)..."
+          className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 box-border resize-none mb-3"
+        />
+        <div className="flex justify-end gap-2">
           <button
             onClick={onCancel}
-            className="flex-1 text-sm text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-lg py-2 border-none cursor-pointer transition-colors"
+            className="text-xs px-3 py-1.5 bg-white text-gray-600 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50 transition-colors"
           >
             Cancel
           </button>
           <button
-            onClick={onConfirm}
-            className="flex-1 text-sm text-white bg-emerald-500 hover:bg-emerald-600 rounded-lg py-2 border-none cursor-pointer transition-colors font-medium"
+            onClick={() => onConfirm(note.trim() || null)}
+            className="text-xs px-3 py-1.5 bg-emerald-600 text-white border-none rounded-md cursor-pointer hover:bg-emerald-700 transition-colors"
           >
             Complete
           </button>
@@ -213,7 +216,7 @@ function TodoPanel({ users }) {
     if (!user) return
     const { data } = await supabase
       .from('todos')
-      .select(`id, text, completed,
+      .select(`id, text, note, completed,
         assigned_user:users!todos_assigned_to_fkey(display_name, avatar_url)`)
       .eq('assigned_to', user.id)
       .eq('completed', false)
@@ -227,11 +230,14 @@ function TodoPanel({ users }) {
     setConfirmTodo(todo)
   }
 
-  const confirmComplete = async () => {
+  const confirmComplete = async (note) => {
     const todo = confirmTodo
     setConfirmTodo(null)
     await supabase.from('todos').update({
-      completed: true, completed_by: user.id, completed_at: new Date().toISOString()
+      completed: true,
+      completed_by: user.id,
+      completed_at: new Date().toISOString(),
+      note,
     }).eq('id', todo.id)
     await supabase.from('activity_log').insert({
       entity_type: 'todo', entity_id: todo.id,
@@ -306,7 +312,7 @@ function FilePanel() {
       .from('files')
       .select(fileSelect)
       .is('message_id', null)
-      .neq('status', 'void')
+      .eq('status', 'active')
       .eq('pinned', true)
       .order('created_at', { ascending: false })
 
@@ -318,7 +324,7 @@ function FilePanel() {
           .from('files')
           .select(fileSelect)
           .is('message_id', null)
-          .neq('status', 'void')
+          .eq('status', 'active')
           .eq('pinned', false)
           .order('created_at', { ascending: false })
           .limit(restLimit)
