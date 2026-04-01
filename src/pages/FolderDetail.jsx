@@ -17,6 +17,8 @@ export default function FolderDetail() {
   const [dismissing, setDismissing] = useState(false)
   const [dragOverTop, setDragOverTop] = useState(false)
   const [draggingFileId, setDraggingFileId] = useState(null)
+  const [editingName, setEditingName] = useState(false)
+  const [nameValue, setNameValue] = useState('')
 
   useEffect(() => { fetchAll() }, [folderId])
 
@@ -82,6 +84,17 @@ export default function FolderDetail() {
     setDragOverTop(false)
   }
 
+  const handleRenameCommit = async () => {
+    const trimmed = nameValue.trim()
+    if (!trimmed || trimmed === folder.name) {
+      setEditingName(false)
+      return
+    }
+    await supabase.from('file_folders').update({ name: trimmed }).eq('id', folderId)
+    setFolder(prev => ({ ...prev, name: trimmed }))
+    setEditingName(false)
+  }
+
   const handleDropTop = async (e) => {
     e.preventDefault()
     const fileId = e.dataTransfer.getData('fileId')
@@ -106,7 +119,27 @@ export default function FolderDetail() {
         </button>
         <div className="flex items-center gap-2">
           <Folder size={15} className="text-blue-400" strokeWidth={1.5} />
-          <h1 className="text-sm font-semibold text-gray-900 m-0">{folder.name}</h1>
+          {editingName ? (
+            <input
+              autoFocus
+              value={nameValue}
+              onChange={e => setNameValue(e.target.value)}
+              onBlur={handleRenameCommit}
+              onKeyDown={e => {
+                if (e.key === 'Enter') handleRenameCommit()
+                if (e.key === 'Escape') setEditingName(false)
+              }}
+              className="text-[9px] font-semibold text-gray-900 m-0 border-b border-gray-400 bg-transparent outline-none w-32"
+            />
+          ) : (
+            <h1
+              className="text-[9px] font-semibold text-gray-900 m-0 cursor-pointer hover:text-blue-500 transition-colors"
+              onClick={() => { setNameValue(folder.name); setEditingName(true) }}
+              title="Click to rename"
+            >
+              {folder.name}
+            </h1>
+          )}
         </div>
       </div>
 
@@ -167,14 +200,16 @@ export default function FolderDetail() {
               <div className="text-[10px] text-gray-400 uppercase tracking-wide">
                 {f.file_type}
               </div>
-              {/* Archive quick action — bottom right, only on hover area */}
-              <button
-                onClick={e => archiveFile(e, f)}
-                title="Archive file"
-                className="absolute bottom-2 right-2.5 text-gray-300 hover:text-amber-500 cursor-pointer bg-transparent border-none p-0 leading-none transition-colors"
-              >
-                <Archive size={14} strokeWidth={1.8} />
-              </button>
+              {/* Archive quick action — only shown for non-archived folders */}
+              {folder.status !== 'archived' && (
+                <button
+                  onClick={e => archiveFile(e, f)}
+                  title="Archive file"
+                  className="absolute bottom-2 right-2.5 text-gray-300 hover:text-amber-500 cursor-pointer bg-transparent border-none p-0 leading-none transition-colors"
+                >
+                  <Archive size={14} strokeWidth={1.8} />
+                </button>
+              )}
             </div>
           ))}
         </div>

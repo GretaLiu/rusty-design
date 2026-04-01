@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -6,6 +6,7 @@ import NewMessageModal from '../components/NewMessageModal'
 import NewTodoModal from '../components/NewTodoModal'
 import NewFileModal from '../components/NewFileModal'
 import FileIcon from '../components/FileIcon'
+import { Pin, Folder } from 'lucide-react'
 
 // ─── Shared card shell ────────────────────────────────────────────────────────
 
@@ -249,7 +250,7 @@ function TodoPanel({ users }) {
   return (
     <>
       <Card
-        title="My Todos"
+        title="Todos"
         actions={<>
           <CardNewBtn onClick={() => setShowModal(true)} />
           <CardViewAll onClick={() => navigate('/home/todos')} />
@@ -299,38 +300,90 @@ function TodoPanel({ users }) {
 
 function FilePanel() {
   const [files, setFiles] = useState([])
-  const [showModal, setShowModal] = useState(false)
+  const [folders, setFolders] = useState([])
+  const [showFileModal, setShowFileModal] = useState(false)
   const navigate = useNavigate()
 
-  useEffect(() => { fetchFiles() }, [])
+  useEffect(() => { fetchAll() }, [])
 
-  const fetchFiles = async () => {
-    const fileSelect = `id, filename, file_type, status, pinned, created_at,
-        created_by_user:users!files_created_by_fkey(display_name, avatar_url)`
+  const fetchAll = async () => {
+    const [{ data: filesData }, { data: foldersData }] = await Promise.all([
+      supabase
+        .from('files')
+        .select(`id, filename, file_type, status, pinned, folder_id, created_at,
+          created_by_user:users!files_created_by_fkey(display_name, avatar_url)`)
+        .is('message_id', null)
+        .eq('status', 'active')
+        .order('pinned', { ascending: false })
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('file_folders')
+        .select('id, name, status, created_at')
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+    ])
+    setFiles(filesData || [])
+    setFolders(foldersData || [])
+  }
 
-    const { data: pinnedData } = await supabase
-      .from('files')
-      .select(fileSelect)
-      .is('message_id', null)
-      .eq('status', 'active')
-      .eq('pinned', true)
-      .order('created_at', { ascending: false })
+  const filesByFolder = useMemo(() => {
+    const map = {}
+    files.forEach(f => {
+      if (f.folder_id) {
+        if (!map[f.folder_id]) map[f.folder_id] = []
+        map[f.folder_id].push(f)
+      }
+    })
+    return map
+  }, [files])
 
-    const pinned = pinnedData || []
-    const restLimit = 15 - Math.ceil(pinned.length / 3) * 3
+  const standaloneFiles = useMemo(() => files.filter(f => !f.folder_id), [files])
+  const pinnedFiles = useMemo(() => standaloneFiles.filter(f => f.pinned), [standaloneFiles])
+  const unpinnedFiles = useMemo(() => standaloneFiles.filter(f => !f.pinned), [standaloneFiles])
 
-    const { data: restData } = restLimit > 0
-      ? await supabase
-          .from('files')
-          .select(fileSelect)
-          .is('message_id', null)
-          .eq('status', 'active')
-          .eq('pinned', false)
-          .order('created_at', { ascending: false })
-          .limit(restLimit)
-      : { data: [] }
+  const allFileIds = useMemo(() => standaloneFiles.map(f => f.id), [standaloneFiles])
 
-    setFiles([...pinned, ...(restData || [])])
+  const isEmpty = files.length === 0 && folders.length === 0
+
+  const FileCard = ({ f }) => (
+    <div
+      onClick={() => navigate(`/home/files/${f.id}`, { state: { fileIds: allFileIds } })}
+      className="relative bg-white border border-gray-100 rounded-xl px-2 pt-3 pb-2 cursor-pointer text-center hover:border-gray-300 hover:shadow-sm transition-all"
+    >
+      {f.pinned && (
+        <span className="absolute top-1.5 right-1.5 text-amber-400">
+          <Pin size={9} strokeWidth={2} />
+        </span>
+      )}
+      <div className="flex justify-center mb-2">
+        <FileIcon type={f.file_type} size="sm" />
+      </div>
+      <div className="text-[10.5px] text-gray-700 font-medium leading-snug break-words line-clamp-2">
+        {f.filename}
+      </div>
+    </div>
+  )
+
+  const FolderCard = ({ folder }) => {
+    const folderFiles = filesByFolder[folder.id] || []
+    return (
+      <div
+        onClick={() => navigate(`/home/files/folders/${folder.id}`)}
+        className="relative bg-white border border-gray-100 rounded-xl px-2 pt-3 pb-2 cursor-pointer text-center hover:border-gray-300 hover:shadow-sm transition-all"
+      >
+        <div className="flex justify-center mb-2">
+          <div className="w-9 h-9 bg-blue-50 rounded-lg flex items-center justify-center shrink-0">
+            <Folder size={18} className="text-blue-400" strokeWidth={1.5} />
+          </div>
+        </div>
+        <div className="text-[10.5px] text-gray-700 font-medium leading-snug break-words line-clamp-2">
+          {folder.name}
+        </div>
+        <div className="text-[9.5px] text-gray-400 mt-0.5">
+          {folderFiles.length} {folderFiles.length === 1 ? 'file' : 'files'}
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -338,58 +391,37 @@ function FilePanel() {
       <Card
         title="Files"
         actions={<>
-          <CardNewBtn onClick={() => setShowModal(true)} label="+ Upload" />
+          <CardNewBtn onClick={() => setShowFileModal(true)} label="+ Upload" />
           <CardViewAll onClick={() => navigate('/home/files')} />
         </>}
       >
-        {files.length === 0
+        {isEmpty
           ? <EmptyState text="No files" />
-          : (() => {
-              const pinned = files.filter(f => f.pinned)
-              const rest = files.filter(f => !f.pinned)
-              const allFileIds = [...pinned, ...rest].map(f => f.id)
-              const FileCard = ({ f }) => (
-                <div
-                  key={f.id}
-                  onClick={() => navigate(`/home/files/${f.id}`, { state: { fileIds: allFileIds } })}
-                  className="relative bg-white border border-gray-100 rounded-xl px-2 pt-3 pb-2 cursor-pointer text-center hover:border-gray-300 hover:shadow-sm transition-all"
-                >
-                  <div className="flex justify-center mb-2">
-                    <FileIcon type={f.file_type} size="sm" />
-                  </div>
-                  <div className="text-[10.5px] text-gray-700 font-medium leading-snug break-words line-clamp-2">
-                    {f.filename}
-                  </div>
-                  {f.status === 'complete' && (
-                    <div className="text-[9px] text-emerald-600 mt-0.5 font-medium">✓ complete</div>
-                  )}
+          : (
+            <div className="p-3 space-y-3">
+              {pinnedFiles.length > 0 && (
+                <div className="grid grid-cols-3 gap-2">
+                  {pinnedFiles.map(f => <FileCard key={f.id} f={f} />)}
                 </div>
-              )
-              return (
-                <div className="p-3 space-y-3">
-                  {pinned.length > 0 && (
-                    <>
-                      <div className="grid grid-cols-3 gap-2">
-                        {pinned.map(f => <FileCard key={f.id} f={f} />)}
-                      </div>
-                      {rest.length > 0 && <div className="border-t border-gray-100" />}
-                    </>
-                  )}
-                  {rest.length > 0 && (
-                    <div className="grid grid-cols-3 gap-2">
-                      {rest.map(f => <FileCard key={f.id} f={f} />)}
-                    </div>
-                  )}
+              )}
+              {pinnedFiles.length > 0 && (folders.length > 0 || unpinnedFiles.length > 0) && (
+                <div className="border-t border-gray-100" />
+              )}
+              {(folders.length > 0 || unpinnedFiles.length > 0) && (
+                <div className="grid grid-cols-3 gap-2">
+                  {folders.map(folder => <FolderCard key={folder.id} folder={folder} />)}
+                  {unpinnedFiles.map(f => <FileCard key={f.id} f={f} />)}
                 </div>
-              )
-            })()
+              )}
+            </div>
+          )
         }
       </Card>
 
-      {showModal && (
+      {showFileModal && (
         <NewFileModal
-          onClose={() => setShowModal(false)}
-          onCreated={() => { setShowModal(false); fetchFiles() }}
+          onClose={() => setShowFileModal(false)}
+          onCreated={() => { setShowFileModal(false); fetchAll() }}
         />
       )}
     </>

@@ -208,7 +208,9 @@ export default function FileList() {
         }`}
       >
         <div className="flex justify-center mb-2.5">
-          <Folder size={32} className="text-blue-400" strokeWidth={1.5} />
+          <div className="w-13 h-13 bg-blue-50 rounded-xl flex items-center justify-center shrink-0">
+            <Folder size={26} className="text-blue-400" strokeWidth={1.5} />
+          </div>
         </div>
         <div className="text-[11px] font-medium leading-snug break-words line-clamp-2 mb-1 text-gray-800">
           {folder.name}
@@ -289,6 +291,9 @@ export default function FileList() {
     )
   }
 
+  const pinnedFiles = useMemo(() => filteredStandalone.filter(f => f.pinned), [filteredStandalone])
+  const unpinnedFiles = useMemo(() => filteredStandalone.filter(f => !f.pinned), [filteredStandalone])
+
   const isEmpty = filteredStandalone.length === 0 && visibleFolders.length === 0
 
   return (
@@ -362,51 +367,89 @@ export default function FileList() {
                   No files
                 </div>
               ) : view === 'grid' ? (
-                <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))' }}>
-                  {visibleFolders.map(folder => (
-                    <FolderGridCard key={folder.id} folder={folder} />
-                  ))}
-                  {filteredStandalone.map(f => (
-                    <div
-                      key={f.id}
-                      draggable={f.status !== 'void'}
-                      onDragStart={e => handleDragStart(e, f.id)}
-                      onDragEnd={handleDragEnd}
-                      onClick={() => navigate(`/home/files/${f.id}`, { state: { fileIds: filteredStandalone.map(x => x.id) } })}
-                      className={`relative bg-white border border-gray-200 rounded-xl px-3 pt-3.5 pb-2.5 cursor-pointer text-center hover:border-gray-300 hover:shadow-sm transition-all select-none ${
-                        f.status === 'void' ? 'opacity-45' : ''
-                      } ${draggingFileId === f.id ? 'opacity-50 scale-95' : ''}`}
-                    >
-                      {f.pinned && (
-                        <span className="absolute top-2 right-2 text-amber-400">
-                          <Pin size={11} strokeWidth={2} />
-                        </span>
-                      )}
-                      <div className="flex justify-center mb-2.5">
-                        <FileIcon type={f.file_type} size="lg" />
-                      </div>
-                      <div className={`text-[11px] font-medium leading-snug break-words line-clamp-2 mb-1.5 ${f.status === 'void' ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
-                        {f.filename}
-                      </div>
-                      <div className="flex items-center justify-center gap-1 flex-wrap">
-                        <span className="text-[10px] text-gray-400 uppercase tracking-wide">{f.file_type}</span>
-                        {f.status !== 'active' && (
-                          <span className={`text-[9px] px-1.5 py-0.5 rounded border ${STATUS_CLS[f.status]}`}>
-                            {f.status === 'complete' ? 'archived' : f.status}
-                          </span>
-                        )}
-                      </div>
-                      {f.status === 'active' && (
-                        <button
-                          onClick={e => updateStatus(e, f, 'complete')}
-                          title="Archive"
-                          className="absolute bottom-2 right-2.5 text-gray-300 hover:text-amber-500 cursor-pointer bg-transparent border-none p-0 leading-none transition-colors"
+                <div className="space-y-3">
+                  {pinnedFiles.length > 0 && (
+                    <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))' }}>
+                      {pinnedFiles.map(f => (
+                        <div
+                          key={f.id}
+                          draggable={f.status !== 'void'}
+                          onDragStart={e => handleDragStart(e, f.id)}
+                          onDragEnd={handleDragEnd}
+                          onClick={() => navigate(`/home/files/${f.id}`, { state: { fileIds: filteredStandalone.map(x => x.id) } })}
+                          className={`relative bg-white border border-gray-200 rounded-xl px-3 pt-3.5 pb-2.5 cursor-pointer text-center hover:border-gray-300 hover:shadow-sm transition-all select-none ${draggingFileId === f.id ? 'opacity-50 scale-95' : ''}`}
                         >
-                          <Archive size={16} strokeWidth={1.8} />
-                        </button>
-                      )}
+                          <span className="absolute top-2 right-2 text-amber-400">
+                            <Pin size={11} strokeWidth={2} />
+                          </span>
+                          <div className="flex justify-center mb-2.5">
+                            <FileIcon type={f.file_type} size="lg" />
+                          </div>
+                          <div className="text-[11px] font-medium leading-snug break-words line-clamp-2 mb-1.5 text-gray-800">
+                            {f.filename}
+                          </div>
+                          <div className="flex items-center justify-center gap-1 flex-wrap">
+                            <span className="text-[10px] text-gray-400 uppercase tracking-wide">{f.file_type}</span>
+                          </div>
+                          {f.status === 'active' && (
+                            <button
+                              onClick={e => updateStatus(e, f, 'complete')}
+                              title="Archive"
+                              className="absolute bottom-2 right-2.5 text-gray-300 hover:text-amber-500 cursor-pointer bg-transparent border-none p-0 leading-none transition-colors"
+                            >
+                              <Archive size={16} strokeWidth={1.8} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
+                  {pinnedFiles.length > 0 && (visibleFolders.length > 0 || unpinnedFiles.length > 0) && (
+                    <div className="border-t border-gray-100" />
+                  )}
+                  {(visibleFolders.length > 0 || unpinnedFiles.length > 0) && (
+                    <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))' }}>
+                      {visibleFolders.map(folder => (
+                        <FolderGridCard key={folder.id} folder={folder} />
+                      ))}
+                      {unpinnedFiles.map(f => (
+                        <div
+                          key={f.id}
+                          draggable={f.status !== 'void'}
+                          onDragStart={e => handleDragStart(e, f.id)}
+                          onDragEnd={handleDragEnd}
+                          onClick={() => navigate(`/home/files/${f.id}`, { state: { fileIds: filteredStandalone.map(x => x.id) } })}
+                          className={`relative bg-white border border-gray-200 rounded-xl px-3 pt-3.5 pb-2.5 cursor-pointer text-center hover:border-gray-300 hover:shadow-sm transition-all select-none ${
+                            f.status === 'void' ? 'opacity-45' : ''
+                          } ${draggingFileId === f.id ? 'opacity-50 scale-95' : ''}`}
+                        >
+                          <div className="flex justify-center mb-2.5">
+                            <FileIcon type={f.file_type} size="lg" />
+                          </div>
+                          <div className={`text-[11px] font-medium leading-snug break-words line-clamp-2 mb-1.5 ${f.status === 'void' ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
+                            {f.filename}
+                          </div>
+                          <div className="flex items-center justify-center gap-1 flex-wrap">
+                            <span className="text-[10px] text-gray-400 uppercase tracking-wide">{f.file_type}</span>
+                            {f.status !== 'active' && (
+                              <span className={`text-[9px] px-1.5 py-0.5 rounded border ${STATUS_CLS[f.status]}`}>
+                                {f.status === 'complete' ? 'archived' : f.status}
+                              </span>
+                            )}
+                          </div>
+                          {f.status === 'active' && (
+                            <button
+                              onClick={e => updateStatus(e, f, 'complete')}
+                              title="Archive"
+                              className="absolute bottom-2 right-2.5 text-gray-300 hover:text-amber-500 cursor-pointer bg-transparent border-none p-0 leading-none transition-colors"
+                            >
+                              <Archive size={16} strokeWidth={1.8} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
