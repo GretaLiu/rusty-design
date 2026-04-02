@@ -163,16 +163,8 @@ export default function FileList() {
 
   const openSelected = () => {
     const toOpen = files.filter(f => selectedIds.has(f.id) && OPENABLE.includes(f.file_type?.toUpperCase()))
-    toOpen.forEach((f, i) => {
-      setTimeout(() => {
-        const a = document.createElement('a')
-        a.href = f.file_url
-        a.target = '_blank'
-        a.rel = 'noreferrer'
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-      }, i * 200)
+    toOpen.forEach(f => {
+      window.open(f.file_url, '_blank', 'noreferrer')
     })
   }
 
