@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import FileIcon from '../components/FileIcon'
-import { Folder, Pin, Archive, LogOut } from 'lucide-react'
+import { Folder, Pin, Archive, LogOut, ExternalLink, CheckSquare, X, Download } from 'lucide-react'
 
 export default function FolderDetail() {
   const { folderId } = useParams()
@@ -19,6 +19,55 @@ export default function FolderDetail() {
   const [draggingFileId, setDraggingFileId] = useState(null)
   const [editingName, setEditingName] = useState(false)
   const [nameValue, setNameValue] = useState('')
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState(new Set())
+
+  const OPENABLE = ['PDF', 'JPG', 'JPEG', 'PNG', 'WEBP']
+
+  const toggleSelectMode = () => {
+    setSelectMode(prev => !prev)
+    setSelectedIds(new Set())
+  }
+
+  const toggleSelect = (e, fileId) => {
+    e.stopPropagation()
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(fileId) ? next.delete(fileId) : next.add(fileId)
+      return next
+    })
+  }
+
+  const openSelected = () => {
+    const toOpen = files.filter(f => selectedIds.has(f.id) && OPENABLE.includes(f.file_type?.toUpperCase()))
+    toOpen.forEach((f, i) => {
+      setTimeout(() => {
+        const a = document.createElement('a')
+        a.href = f.file_url
+        a.target = '_blank'
+        a.rel = 'noreferrer'
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+      }, i * 200)
+    })
+  }
+
+  const downloadSelected = async () => {
+    const toDownload = files.filter(f => selectedIds.has(f.id))
+    for (const f of toDownload) {
+      const res = await fetch(f.file_url)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = f.filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    }
+  }
 
   useEffect(() => { fetchAll() }, [folderId])
 
@@ -151,6 +200,31 @@ export default function FolderDetail() {
           <span className="text-gray-600">{folder.created_by_user?.display_name}</span>
           {' · '}{formatDate(folder.created_at)}
         </p>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={toggleSelectMode}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-md cursor-pointer hover:bg-gray-50 transition-colors"
+          >
+            {selectMode ? <X size={13} /> : <CheckSquare size={13} />}
+            {selectMode ? 'Cancel' : 'Select'}
+          </button>
+          {selectMode && selectedIds.size > 0 && (
+            <>
+              <button
+                onClick={openSelected}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-gray-900 text-white border-none rounded-md cursor-pointer hover:bg-gray-700 transition-colors font-medium"
+              >
+                <ExternalLink size={12} /> Open {selectedIds.size}
+              </button>
+              <button
+                onClick={downloadSelected}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-gray-900 text-white border-none rounded-md cursor-pointer hover:bg-gray-700 transition-colors font-medium"
+              >
+                <Download size={12} /> Download {selectedIds.size}
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Top-level drop zone */}
@@ -178,15 +252,21 @@ export default function FolderDetail() {
           {files.map(f => (
             <div
               key={f.id}
-              draggable
+              draggable={!selectMode}
               onDragStart={e => handleDragStart(e, f.id)}
               onDragEnd={handleDragEnd}
-              onClick={() => navigate(`/home/files/${f.id}`, { state: { fileIds: files.map(x => x.id) } })}
-              className={`relative bg-white border border-gray-200 rounded-xl px-3 pt-3.5 pb-2.5 cursor-pointer text-center hover:border-gray-300 hover:shadow-sm transition-all select-none ${
-                draggingFileId === f.id ? 'opacity-50 scale-95' : ''
-              }`}
+              onClick={e => selectMode ? toggleSelect(e, f.id) : navigate(`/home/files/${f.id}`, { state: { fileIds: files.map(x => x.id) } })}
+              className={`relative bg-white border rounded-xl px-3 pt-3.5 pb-2.5 cursor-pointer text-center hover:border-gray-300 hover:shadow-sm transition-all select-none ${
+                selectMode && selectedIds.has(f.id) ? 'border-gray-900 ring-1 ring-gray-900' : 'border-gray-200'
+              } ${draggingFileId === f.id ? 'opacity-50 scale-95' : ''}`}
             >
-              {f.pinned && (
+              {selectMode ? (
+                <span className={`absolute top-2 right-2 w-3.5 h-3.5 rounded border-2 flex items-center justify-center ${
+                  selectedIds.has(f.id) ? 'bg-gray-900 border-gray-900' : 'bg-white border-gray-300'
+                }`}>
+                  {selectedIds.has(f.id) && <span className="w-1.5 h-1.5 bg-white rounded-sm block" />}
+                </span>
+              ) : f.pinned && (
                 <span className="absolute top-2 right-2 text-amber-400">
                   <Pin size={11} strokeWidth={2} />
                 </span>
@@ -200,8 +280,7 @@ export default function FolderDetail() {
               <div className="text-[10px] text-gray-400 uppercase tracking-wide">
                 {f.file_type}
               </div>
-              {/* Archive quick action — only shown for non-archived folders */}
-              {folder.status !== 'archived' && (
+              {!selectMode && folder.status !== 'archived' && (
                 <button
                   onClick={e => archiveFile(e, f)}
                   title="Archive file"

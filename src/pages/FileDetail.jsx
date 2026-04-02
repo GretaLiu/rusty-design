@@ -7,14 +7,14 @@ import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
 import FileIcon from '../components/FileIcon'
-import { Pin, ExternalLink, RotateCcw, Archive, Printer, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Pin, ExternalLink, RotateCcw, Archive, Download, ChevronLeft, ChevronRight } from 'lucide-react'
 
 pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
 
-const STATUS_CLS = {
-  active:   'text-emerald-700 bg-emerald-50 border-emerald-200',
-  complete: 'text-amber-700  bg-amber-50  border-amber-200',
-  void:     'text-red-500    bg-red-50    border-red-200',
+const STATUS_BADGE = {
+  active:   'text-emerald-600 bg-emerald-50',
+  complete: 'text-amber-600  bg-amber-50',
+  void:     'text-red-400    bg-red-50',
 }
 
 export default function FileDetail() {
@@ -127,36 +127,21 @@ export default function FileDetail() {
 
   const isImage = (type) => ['JPG', 'JPEG', 'PNG', 'WEBP'].includes(type?.toUpperCase())
 
-  const handlePrint = () => {
-    window.print()
+  const handleDownload = async () => {
+    const res = await fetch(file.file_url)
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = file.filename
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   if (!file) return null
 
   return (
     <div className="max-w-[640px] mx-auto px-6 py-6">
-      <style>{`
-        @media print {
-          body > * { display: none !important; }
-          body > * .print-preview { display: block !important; }
-          #root { display: block !important; }
-          #root > * { display: none !important; }
-          .print-preview {
-            display: block !important;
-            position: fixed !important;
-            inset: 0 !important;
-            padding: 24px !important;
-            border: none !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-            background: white !important;
-            overflow: visible !important;
-            z-index: 9999 !important;
-          }
-          .print-preview * { visibility: visible !important; }
-          .print-preview button { display: none !important; }
-        }
-      `}</style>
 
       {/* Back + prev/next navigation */}
       <div className="relative flex items-center justify-center mb-6">
@@ -229,7 +214,7 @@ export default function FileDetail() {
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <span className={`text-[11px] px-1.5 py-0.5 rounded border ${STATUS_CLS[file.status]}`}>
+              <span className={`text-[11px] px-1.5 py-0.5 rounded-full ${STATUS_BADGE[file.status]}`}>
                 {file.status === 'complete' ? 'archived' : file.status}
               </span>
               <span className="text-xs text-gray-400 uppercase tracking-wide">{file.file_type}</span>
@@ -266,14 +251,12 @@ export default function FileDetail() {
         {/* Actions */}
         {file.status !== 'void' && (
           <div className="flex items-center gap-2 flex-wrap">
-            {(isImage(file.file_type) || file.file_type?.toUpperCase() === 'PDF') && (
-              <button
-                onClick={handlePrint}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-gray-900 text-white rounded-md border-none cursor-pointer hover:bg-gray-700 transition-colors font-medium"
-              >
-                <Printer size={12} /> Print
-              </button>
-            )}
+            <button
+              onClick={handleDownload}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-gray-900 text-white rounded-md border-none cursor-pointer hover:bg-gray-700 transition-colors font-medium"
+            >
+              <Download size={12} /> Download
+            </button>
             <a
               href={file.file_url} target="_blank" rel="noreferrer"
               className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-md no-underline hover:bg-gray-50 transition-colors font-medium"
@@ -308,7 +291,7 @@ export default function FileDetail() {
 
       {/* Image preview */}
       {file.status !== 'void' && isImage(file.file_type) && (
-        <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4 print-preview">
+        <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide m-0">Preview</h3>
           </div>
@@ -400,7 +383,7 @@ export default function FileDetail() {
 
       {/* PDF preview */}
       {file.status !== 'void' && file.file_type?.toUpperCase() === 'PDF' && (
-        <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4 print-preview">
+        <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide m-0">Preview</h3>
             {numPages && (

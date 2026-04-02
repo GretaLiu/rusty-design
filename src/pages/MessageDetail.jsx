@@ -38,6 +38,7 @@ export default function MessageDetail() {
   const [replies, setReplies] = useState([])
   const [todos, setTodos] = useState([])
   const [files, setFiles] = useState([])
+  const [log, setLog] = useState([])
   const [users, setUsers] = useState([])
   const [replyBody, setReplyBody] = useState('')
   const [mentioning, setMentioning] = useState(false)
@@ -98,6 +99,15 @@ export default function MessageDetail() {
       .update({ read: true })
       .eq('user_id', user.id)
       .in('reply_id', (r || []).map(x => x.id))
+
+    const { data: l } = await supabase
+      .from('activity_log')
+      .select(`id, action, entity_type, created_at,
+        performed_by_user:users!activity_log_performed_by_fkey(display_name, avatar_url)`)
+      .eq('entity_type', 'message')
+      .eq('entity_id', id)
+      .order('created_at', { ascending: false })
+    setLog(l || [])
   }
 
   const fetchUsers = async () => {
@@ -527,6 +537,29 @@ export default function MessageDetail() {
                   </svg>
                 </button>
               )}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Activity log ── */}
+      <section className="mb-8">
+        <h2 className="text-sm font-semibold text-gray-900 mb-3">Activity</h2>
+        {log.length === 0 && <p className="text-sm text-gray-400">No activity yet</p>}
+        <div className="space-y-2">
+          {log.map(entry => (
+            <div key={entry.id} className="flex items-center gap-2">
+              <img
+                src={entry.performed_by_user?.avatar_url} alt=""
+                className="w-5 h-5 rounded-full object-cover shrink-0"
+              />
+              <span className="flex-1 text-xs text-gray-600">
+                <span className="font-medium text-gray-800">{entry.performed_by_user?.display_name}</span>
+                {' '}{entry.action} this ticket
+              </span>
+              <span className="text-xs text-gray-400 shrink-0 tabular-nums">
+                {formatTime(entry.created_at)}
+              </span>
             </div>
           ))}
         </div>

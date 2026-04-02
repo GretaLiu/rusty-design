@@ -12,12 +12,12 @@ import { Pin, Folder } from 'lucide-react'
 
 function Card({ title, actions, children }) {
   return (
-    <div className="flex-1 min-w-0 bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col">
+    <div className="w-full min-w-0 bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
         <span className="text-sm font-semibold text-gray-900">{title}</span>
         <div className="flex items-center gap-2">{actions}</div>
       </div>
-      <div className="flex-1 min-h-[560px]">{children}</div>
+      <div className="flex-1 min-h-0 sm:min-h-[560px]">{children}</div>
     </div>
   )
 }
@@ -438,7 +438,7 @@ export default function Home() {
   }, [])
 
   return (
-    <div className="flex gap-5 p-6 items-start max-w-[1200px] mx-auto">
+    <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 p-4 sm:p-6 items-start max-w-[1200px] mx-auto">
       <Tickets users={users} />
       <TodoPanel users={users} />
       <FilePanel />

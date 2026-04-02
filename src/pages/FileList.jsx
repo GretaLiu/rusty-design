@@ -6,12 +6,11 @@ import NewFileModal from '../components/NewFileModal'
 import NewFolderModal from '../components/NewFolderModal'
 import FileIcon from '../components/FileIcon'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { LayoutGrid, List, Pin, Archive, Folder, FolderOpen, ChevronDown, ChevronRight, FolderPlus } from 'lucide-react'
+import { LayoutGrid, List, Pin, Archive, Folder, FolderOpen, ChevronDown, ChevronRight, FolderPlus, ExternalLink, CheckSquare, Search, X, Download } from 'lucide-react'
 
-const STATUS_CLS = {
-  active:   'text-emerald-700 bg-emerald-50 border-emerald-200',
-  complete: 'text-amber-700  bg-amber-50  border-amber-200',
-  void:     'text-red-500    bg-red-50    border-red-200',
+const STATUS_BADGE = {
+  complete: 'text-amber-600 bg-amber-50',
+  void:     'text-red-400   bg-red-50',
 }
 
 const TAB_TO_FOLDER_STATUS = {
@@ -30,6 +29,9 @@ export default function FileList() {
   const [expandedFolders, setExpandedFolders] = useState(new Set())
   const [dragOverFolderId, setDragOverFolderId] = useState(null)
   const [draggingFileId, setDraggingFileId] = useState(null)
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState(new Set())
+  const [searchQuery, setSearchQuery] = useState('')
   const { user } = useAuth()
   const navigate = useNavigate()
 
@@ -141,6 +143,53 @@ export default function FileList() {
 
   const handleDragLeave = () => {
     setDragOverFolderId(null)
+  }
+
+  const toggleSelectMode = () => {
+    setSelectMode(prev => !prev)
+    setSelectedIds(new Set())
+  }
+
+  const toggleSelect = (e, fileId) => {
+    e.stopPropagation()
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(fileId) ? next.delete(fileId) : next.add(fileId)
+      return next
+    })
+  }
+
+  const OPENABLE = ['PDF', 'JPG', 'JPEG', 'PNG', 'WEBP']
+
+  const openSelected = () => {
+    const toOpen = files.filter(f => selectedIds.has(f.id) && OPENABLE.includes(f.file_type?.toUpperCase()))
+    toOpen.forEach((f, i) => {
+      setTimeout(() => {
+        const a = document.createElement('a')
+        a.href = f.file_url
+        a.target = '_blank'
+        a.rel = 'noreferrer'
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+      }, i * 200)
+    })
+  }
+
+  const downloadSelected = async () => {
+    const toDownload = files.filter(f => selectedIds.has(f.id))
+    for (const f of toDownload) {
+      const res = await fetch(f.file_url)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = f.filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    }
   }
 
   const handleDropOnFolder = async (e, folderId) => {
@@ -296,6 +345,18 @@ export default function FileList() {
 
   const isEmpty = filteredStandalone.length === 0 && visibleFolders.length === 0
 
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return null
+    return files.filter(f => f.filename.toLowerCase().includes(q))
+  }, [searchQuery, files])
+
+  const folderById = useMemo(() => {
+    const map = {}
+    folders.forEach(f => { map[f.id] = f })
+    return map
+  }, [folders])
+
   return (
     <>
       <div className="px-6 py-6 max-w-[900px] mx-auto">
@@ -311,8 +372,71 @@ export default function FileList() {
           <h1 className="text-sm font-semibold text-gray-900 m-0">Files</h1>
         </div>
 
+        {/* Search bar */}
+        <div className="relative mb-3">
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <input
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search files…"
+            className="w-full pl-8 pr-8 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-gray-400 transition-colors"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer p-0 leading-none"
+            >
+              <X size={13} />
+            </button>
+          )}
+        </div>
+
+        {/* Search results */}
+        {searchResults && (
+          <div className="mb-2">
+            <p className="text-xs text-gray-400 mb-3">
+              {searchResults.length === 0 ? 'No results' : `${searchResults.length} result${searchResults.length > 1 ? 's' : ''}`}
+              {' '}for "<span className="text-gray-600">{searchQuery}</span>"
+            </p>
+            {searchResults.length > 0 && (
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                {searchResults.map(f => {
+                  const parentFolder = f.folder_id ? folderById[f.folder_id] : null
+                  return (
+                    <div
+                      key={f.id}
+                      onClick={() => navigate(`/home/files/${f.id}`)}
+                      className="flex items-center gap-3 px-4 py-3 border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors last:border-b-0"
+                    >
+                      <FileIcon type={f.file_type} size="sm" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          {f.pinned && <Pin size={10} className="text-amber-400 shrink-0" strokeWidth={2} />}
+                          <span className="text-sm font-medium text-gray-900 truncate">{f.filename}</span>
+                          {STATUS_BADGE[f.status] && (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${STATUS_BADGE[f.status]}`}>
+                              {f.status === 'complete' ? 'archived' : f.status}
+                            </span>
+                          )}
+                        </div>
+                        {parentFolder && (
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <Folder size={10} className="text-blue-400 shrink-0" strokeWidth={1.5} />
+                            <span className="text-xs text-gray-400 truncate">{parentFolder.name}</span>
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-400 uppercase shrink-0">{f.file_type}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Tabs */}
-        <Tabs value={tab} onValueChange={setTab} className="w-full">
+        <Tabs value={tab} onValueChange={setTab} className={searchResults ? 'hidden' : 'w-full'}>
           <TabsList className="w-full mb-3">
             {['active', 'complete', 'void', 'all'].map(t => (
               <TabsTrigger key={t} value={t} className="flex-1 capitalize gap-1.5">
@@ -325,7 +449,15 @@ export default function FileList() {
           {/* Toolbar — below tabs, context-aware */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              {showNewFolder && (
+              {showUpload && !selectMode && (
+                <button
+                  onClick={() => setShowFileModal(true)}
+                  className="text-xs px-3 py-1.5 bg-gray-900 text-white border-none rounded-md cursor-pointer hover:bg-gray-700 transition-colors"
+                >
+                  + Upload
+                </button>
+              )}
+              {showNewFolder && !selectMode && (
                 <button
                   onClick={() => setShowFolderModal(true)}
                   className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-md cursor-pointer hover:bg-gray-50 transition-colors"
@@ -333,13 +465,28 @@ export default function FileList() {
                   <FolderPlus size={13} /> New Folder
                 </button>
               )}
-              {showUpload && (
-                <button
-                  onClick={() => setShowFileModal(true)}
-                  className="text-xs px-3 py-1.5 bg-gray-900 text-white border-none rounded-md cursor-pointer hover:bg-gray-700 transition-colors"
-                >
-                  + Upload
-                </button>
+              <button
+                onClick={toggleSelectMode}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-md cursor-pointer hover:bg-gray-50 transition-colors"
+              >
+                {selectMode ? <X size={13} /> : <CheckSquare size={13} />}
+                {selectMode ? 'Cancel' : 'Select'}
+              </button>
+              {selectMode && selectedIds.size > 0 && (
+                <>
+                  <button
+                    onClick={openSelected}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-gray-900 text-white border-none rounded-md cursor-pointer hover:bg-gray-700 transition-colors font-medium"
+                  >
+                    <ExternalLink size={12} /> Open {selectedIds.size}
+                  </button>
+                  <button
+                    onClick={downloadSelected}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-gray-900 text-white border-none rounded-md cursor-pointer hover:bg-gray-700 transition-colors font-medium"
+                  >
+                    <Download size={12} /> Download {selectedIds.size}
+                  </button>
+                </>
               )}
             </div>
             <div className="flex border border-gray-200 rounded-lg overflow-hidden">
@@ -373,15 +520,27 @@ export default function FileList() {
                       {pinnedFiles.map(f => (
                         <div
                           key={f.id}
-                          draggable={f.status !== 'void'}
+                          draggable={!selectMode && f.status !== 'void'}
                           onDragStart={e => handleDragStart(e, f.id)}
                           onDragEnd={handleDragEnd}
-                          onClick={() => navigate(`/home/files/${f.id}`, { state: { fileIds: filteredStandalone.map(x => x.id) } })}
-                          className={`relative bg-white border border-gray-200 rounded-xl px-3 pt-3.5 pb-2.5 cursor-pointer text-center hover:border-gray-300 hover:shadow-sm transition-all select-none ${draggingFileId === f.id ? 'opacity-50 scale-95' : ''}`}
+                          onClick={e => selectMode ? toggleSelect(e, f.id) : navigate(`/home/files/${f.id}`, { state: { fileIds: filteredStandalone.map(x => x.id) } })}
+                          className={`relative bg-white border rounded-xl px-3 pt-3.5 pb-2.5 cursor-pointer text-center hover:border-gray-300 hover:shadow-sm transition-all select-none ${
+                            selectMode && selectedIds.has(f.id)
+                              ? 'border-gray-900 ring-1 ring-gray-900'
+                              : 'border-gray-200'
+                          } ${draggingFileId === f.id ? 'opacity-50 scale-95' : ''}`}
                         >
-                          <span className="absolute top-2 right-2 text-amber-400">
-                            <Pin size={11} strokeWidth={2} />
-                          </span>
+                          {selectMode ? (
+                            <span className={`absolute top-2 right-2 w-3.5 h-3.5 rounded border-2 flex items-center justify-center ${
+                              selectedIds.has(f.id) ? 'bg-gray-900 border-gray-900' : 'bg-white border-gray-300'
+                            }`}>
+                              {selectedIds.has(f.id) && <span className="w-1.5 h-1.5 bg-white rounded-sm block" />}
+                            </span>
+                          ) : (
+                            <span className="absolute top-2 right-2 text-amber-400">
+                              <Pin size={11} strokeWidth={2} />
+                            </span>
+                          )}
                           <div className="flex justify-center mb-2.5">
                             <FileIcon type={f.file_type} size="lg" />
                           </div>
@@ -415,14 +574,23 @@ export default function FileList() {
                       {unpinnedFiles.map(f => (
                         <div
                           key={f.id}
-                          draggable={f.status !== 'void'}
+                          draggable={!selectMode && f.status !== 'void'}
                           onDragStart={e => handleDragStart(e, f.id)}
                           onDragEnd={handleDragEnd}
-                          onClick={() => navigate(`/home/files/${f.id}`, { state: { fileIds: filteredStandalone.map(x => x.id) } })}
-                          className={`relative bg-white border border-gray-200 rounded-xl px-3 pt-3.5 pb-2.5 cursor-pointer text-center hover:border-gray-300 hover:shadow-sm transition-all select-none ${
-                            f.status === 'void' ? 'opacity-45' : ''
-                          } ${draggingFileId === f.id ? 'opacity-50 scale-95' : ''}`}
+                          onClick={e => selectMode ? toggleSelect(e, f.id) : navigate(`/home/files/${f.id}`, { state: { fileIds: filteredStandalone.map(x => x.id) } })}
+                          className={`relative bg-white border rounded-xl px-3 pt-3.5 pb-2.5 cursor-pointer text-center hover:border-gray-300 hover:shadow-sm transition-all select-none ${
+                            selectMode && selectedIds.has(f.id)
+                              ? 'border-gray-900 ring-1 ring-gray-900'
+                              : 'border-gray-200'
+                          } ${f.status === 'void' ? 'opacity-45' : ''} ${draggingFileId === f.id ? 'opacity-50 scale-95' : ''}`}
                         >
+                          {selectMode && (
+                            <span className={`absolute top-2 right-2 w-3.5 h-3.5 rounded border-2 flex items-center justify-center ${
+                              selectedIds.has(f.id) ? 'bg-gray-900 border-gray-900' : 'bg-white border-gray-300'
+                            }`}>
+                              {selectedIds.has(f.id) && <span className="w-1.5 h-1.5 bg-white rounded-sm block" />}
+                            </span>
+                          )}
                           <div className="flex justify-center mb-2.5">
                             <FileIcon type={f.file_type} size="lg" />
                           </div>
@@ -431,8 +599,8 @@ export default function FileList() {
                           </div>
                           <div className="flex items-center justify-center gap-1 flex-wrap">
                             <span className="text-[10px] text-gray-400 uppercase tracking-wide">{f.file_type}</span>
-                            {f.status !== 'active' && (
-                              <span className={`text-[9px] px-1.5 py-0.5 rounded border ${STATUS_CLS[f.status]}`}>
+                            {STATUS_BADGE[f.status] && (
+                              <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${STATUS_BADGE[f.status]}`}>
                                 {f.status === 'complete' ? 'archived' : f.status}
                               </span>
                             )}
@@ -462,14 +630,21 @@ export default function FileList() {
                   {filteredStandalone.map(f => (
                     <div
                       key={f.id}
-                      draggable={f.status !== 'void'}
+                      draggable={!selectMode && f.status !== 'void'}
                       onDragStart={e => handleDragStart(e, f.id)}
                       onDragEnd={handleDragEnd}
-                      onClick={() => navigate(`/home/files/${f.id}`, { state: { fileIds: filteredStandalone.map(x => x.id) } })}
+                      onClick={e => selectMode ? toggleSelect(e, f.id) : navigate(`/home/files/${f.id}`, { state: { fileIds: filteredStandalone.map(x => x.id) } })}
                       className={`flex items-center gap-3 px-4 py-3 border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors last:border-b-0 select-none ${
-                        f.status === 'void' ? 'opacity-45' : ''
-                      } ${draggingFileId === f.id ? 'opacity-50' : ''}`}
+                        selectMode && selectedIds.has(f.id) ? 'bg-gray-50' : ''
+                      } ${f.status === 'void' ? 'opacity-45' : ''} ${draggingFileId === f.id ? 'opacity-50' : ''}`}
                     >
+                      {selectMode && (
+                        <span className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center shrink-0 ${
+                          selectedIds.has(f.id) ? 'bg-gray-900 border-gray-900' : 'bg-white border-gray-300'
+                        }`}>
+                          {selectedIds.has(f.id) && <span className="w-1.5 h-1.5 bg-white rounded-sm block" />}
+                        </span>
+                      )}
                       <FileIcon type={f.file_type} size="sm" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
@@ -477,8 +652,8 @@ export default function FileList() {
                           <span className={`text-sm font-medium truncate ${f.status === 'void' ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
                             {f.filename}
                           </span>
-                          {f.status !== 'active' && (
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded border shrink-0 ${STATUS_CLS[f.status]}`}>
+                          {STATUS_BADGE[f.status] && (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${STATUS_BADGE[f.status]}`}>
                               {f.status === 'complete' ? 'archived' : f.status}
                             </span>
                           )}
@@ -491,7 +666,7 @@ export default function FileList() {
                           </span>
                         </div>
                       </div>
-                      <ActionButtons f={f} />
+                      {!selectMode && <ActionButtons f={f} />}
                     </div>
                   ))}
                 </div>

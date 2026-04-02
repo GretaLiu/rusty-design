@@ -109,7 +109,9 @@ export default function NewFileModal({ messageId = null, allowFolder = true, onC
     const failed = []
     for (const file of files) {
       const ext = file.name.split('.').pop()
-      const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      const baseName = file.name.slice(0, -(ext.length + 1)).replace(/[^a-zA-Z0-9\-_\u4e00-\u9fff]/g, '_')
+      const suffix = Math.random().toString(36).slice(2, 7)
+      const path = `${baseName}-${suffix}.${ext}`
       const { error: uploadErr } = await supabase.storage.from('files').upload(path, file)
       if (uploadErr) {
         failed.push(file.name)

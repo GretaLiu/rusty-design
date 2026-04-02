@@ -150,7 +150,7 @@ export default function TodoList() {
           src={todo.assigned_user?.avatar_url} alt=""
           className="w-5 h-5 rounded-full object-cover"
         />
-        <span className="text-xs text-gray-400">{todo.assigned_user?.display_name}</span>
+        <span className="hidden sm:inline text-xs text-gray-400">{todo.assigned_user?.display_name}</span>
       </div>
     </div>
   )
@@ -170,9 +170,17 @@ export default function TodoList() {
     </div>
   )
 
+  const TwoColumnLayout = () => (
+    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col sm:flex-row">
+      <Column title="Assigned to Me" todos={myTodos} />
+      <div className="h-px sm:h-auto sm:w-px bg-gray-100 shrink-0" />
+      <Column title="Others" todos={otherTodos} />
+    </div>
+  )
+
   return (
     <>
-      <div className="px-6 py-6 max-w-[1000px] mx-auto">
+      <div className="px-4 sm:px-6 py-4 sm:py-6 max-w-[1000px] mx-auto">
         <div className="relative flex items-center justify-center mb-5">
           <button
             onClick={() => navigate('/home')}
@@ -197,19 +205,11 @@ export default function TodoList() {
           </TabsList>
 
           <TabsContent value="active">
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden flex">
-              <Column title="Assigned to Me" todos={myTodos} />
-              <div className="w-px bg-gray-100 shrink-0" />
-              <Column title="Others" todos={otherTodos} />
-            </div>
+            <TwoColumnLayout />
           </TabsContent>
 
           <TabsContent value="completed">
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden flex">
-              <Column title="Assigned to Me" todos={myTodos} />
-              <div className="w-px bg-gray-100 shrink-0" />
-              <Column title="Others" todos={otherTodos} />
-            </div>
+            <TwoColumnLayout />
           </TabsContent>
 
           <TabsContent value="log">
@@ -220,23 +220,28 @@ export default function TodoList() {
               {log.map(entry => (
                 <div
                   key={entry.id}
-                  className="flex items-center gap-2.5 px-4 py-2.5 border-b border-gray-50 last:border-b-0"
+                  className="flex items-start sm:items-center gap-2.5 px-4 py-2.5 border-b border-gray-50 last:border-b-0"
                 >
                   <img
                     src={entry.performed_by_user?.avatar_url} alt=""
-                    className="w-6 h-6 rounded-full object-cover shrink-0"
+                    className="w-6 h-6 rounded-full object-cover shrink-0 mt-0.5 sm:mt-0"
                   />
-                  <span className="text-sm text-gray-600 flex-1">
-                    <span className="font-medium text-gray-900">{entry.performed_by_user?.display_name}</span>
-                    {' '}{actionLabel(entry.action)}
-                  </span>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm text-gray-600">
+                      <span className="font-medium text-gray-900">{entry.performed_by_user?.display_name}</span>
+                      {' '}{actionLabel(entry.action)}
+                    </span>
+                    <span className="block sm:hidden text-xs text-gray-400 tabular-nums mt-0.5">
+                      {formatDate(entry.created_at)}
+                    </span>
+                  </div>
                   <button
                     onClick={() => navigate(`/home/todos/${entry.entity_id}`)}
                     className="text-xs text-blue-500 hover:text-blue-700 bg-transparent border-none cursor-pointer p-0 shrink-0 transition-colors"
                   >
                     view →
                   </button>
-                  <span className="text-xs text-gray-400 shrink-0 tabular-nums">
+                  <span className="hidden sm:inline text-xs text-gray-400 shrink-0 tabular-nums">
                     {formatDate(entry.created_at)}
                   </span>
                 </div>
